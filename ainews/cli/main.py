@@ -48,6 +48,8 @@ from ainews.cli.stats import stats_app  # noqa: E402
 from ainews.cli.trend import trend_command  # noqa: E402
 from ainews.cli.dedup import dedup_command  # noqa: E402
 from ainews.cli.entities import entities_command  # noqa: E402
+from ainews.cli.run import run_command  # noqa: E402
+from ainews.cli.cron import cron_app  # noqa: E402
 
 app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="db")
@@ -62,3 +64,5 @@ app.add_typer(process_app, name="process")
 app.command(name="trend")(trend_command)
 app.command(name="dedup")(dedup_command)
 app.command(name="entities")(entities_command)
+app.add_typer(run_command, name="run")
+app.add_typer(cron_app, name="cron")
