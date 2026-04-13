@@ -1,2 +1,5 @@
 .claude
 openspec
+__pycache__/
+.coverage
+*.pyc
