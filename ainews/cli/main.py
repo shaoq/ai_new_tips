@@ -43,10 +43,12 @@ from ainews.cli.push import push_app  # noqa: E402
 from ainews.cli.fetch import fetch_app, fetch_command  # noqa: E402
 from ainews.cli.sources import sources_app  # noqa: E402
 from ainews.cli.process import app as process_app  # noqa: E402
+from ainews.cli.sync import sync_app  # noqa: E402
 
 app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="db")
 app.add_typer(push_app, name="push")
+app.add_typer(sync_app, name="sync")
 app.command(name="doctor")(doctor_command)
 app.add_typer(fetch_app, name="fetch")
 app.command(name="fetch", deprecated=True)(fetch_command)
