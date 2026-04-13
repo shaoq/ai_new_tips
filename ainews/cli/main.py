@@ -39,7 +39,15 @@ def main_callback(
 from ainews.cli.config import config_app  # noqa: E402
 from ainews.cli.db import db_app  # noqa: E402
 from ainews.cli.doctor import doctor_command  # noqa: E402
+from ainews.cli.stats import stats_app  # noqa: E402
+from ainews.cli.trend import trend_command  # noqa: E402
+from ainews.cli.dedup import dedup_command  # noqa: E402
+from ainews.cli.entities import entities_command  # noqa: E402
 
 app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="db")
+app.add_typer(stats_app, name="stats")
 app.command(name="doctor")(doctor_command)
+app.command(name="trend")(trend_command)
+app.command(name="dedup")(dedup_command)
+app.command(name="entities")(entities_command)
