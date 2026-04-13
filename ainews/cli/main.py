@@ -39,7 +39,9 @@ def main_callback(
 from ainews.cli.config import config_app  # noqa: E402
 from ainews.cli.db import db_app  # noqa: E402
 from ainews.cli.doctor import doctor_command  # noqa: E402
+from ainews.cli.process import app as process_app  # noqa: E402
 
 app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="db")
 app.command(name="doctor")(doctor_command)
+app.add_typer(process_app, name="process")
