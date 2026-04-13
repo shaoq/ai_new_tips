@@ -59,9 +59,11 @@ class TestDbStatus:
     """db status 测试."""
 
     def test_db_status_no_db(self, tmp_path) -> None:
-        from ainews.config.settings import AppConfig
-        config = AppConfig()
-        with patch("ainews.storage.database.get_db_path", return_value=tmp_path / "nonexistent.db"):
+        from ainews.storage.database import reset_engine
+        reset_engine()
+        nonexistent = tmp_path / "nonexistent.db"
+        with patch("ainews.cli.db.get_db_path", return_value=nonexistent), \
+             patch("ainews.storage.database.get_db_path", return_value=nonexistent):
             result = runner.invoke(app, ["db", "status"])
             assert result.exit_code == 0
             assert "未创建" in result.output
