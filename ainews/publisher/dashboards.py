@@ -1,4 +1,4 @@
-"""仪表盘初始化: 创建 8 个 Dataview 仪表盘模板."""
+"""仪表盘初始化: 创建 5 个 Bases 仪表盘模板."""
 
 from __future__ import annotations
 
@@ -7,30 +7,24 @@ from typing import Any
 
 from ainews.publisher.obsidian_client import ObsidianClient
 from ainews.publisher.obsidian_templates import (
-    render_dashboard_by_category,
-    render_dashboard_daily_stats,
+    render_dashboard_articles,
     render_dashboard_home,
-    render_dashboard_knowledge_graph,
     render_dashboard_people_tracker,
     render_dashboard_reading_list,
     render_dashboard_trending,
-    render_dashboard_weekly_stats,
 )
 
 logger = logging.getLogger(__name__)
 
 DASHBOARD_DIR = "AI-News/Dashboards"
 
-# 8 个仪表盘定义
-DASHBOARDS: dict[str, str] = {
+# 5 个仪表盘定义 (Bases YAML)
+DASHBOARDS: dict[str, Any] = {
     "Home": render_dashboard_home,
     "Trending": render_dashboard_trending,
-    "Daily-Stats": render_dashboard_daily_stats,
-    "Weekly-Stats": render_dashboard_weekly_stats,
     "Reading-List": render_dashboard_reading_list,
     "People-Tracker": render_dashboard_people_tracker,
-    "Knowledge-Graph": render_dashboard_knowledge_graph,
-    "By-Category": render_dashboard_by_category,
+    "Articles": render_dashboard_articles,
 }
 
 
@@ -51,7 +45,7 @@ def init_dashboards(
     skipped = 0
 
     for name, renderer in DASHBOARDS.items():
-        path = f"{DASHBOARD_DIR}/{name}.md"
+        path = f"{DASHBOARD_DIR}/{name}.base"
 
         # 检查是否已存在（非重建模式）
         if not rebuild:

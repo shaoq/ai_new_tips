@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -15,15 +16,18 @@ from ainews.publisher.obsidian_templates import (
     render_article_frontmatter,
     render_daily_header,
     render_daily_section,
-    render_dashboard_by_category,
-    render_dashboard_daily_stats,
+    render_dashboard_articles,
     render_dashboard_home,
-    render_dashboard_knowledge_graph,
     render_dashboard_people_tracker,
     render_dashboard_reading_list,
     render_dashboard_trending,
-    render_dashboard_weekly_stats,
     render_entity_page,
+)
+from ainews.publisher.dashboards import (
+    DASHBOARDS,
+    DASHBOARD_DIR,
+    init_dashboards,
+    rebuild_dashboards,
 )
 
 
@@ -91,7 +95,6 @@ class TestSlugGeneration:
 
     def test_chinese_title(self) -> None:
         slug = generate_slug("深度学习新架构：Transformer 的进化")
-        # 中文字符被移除，结果可能为空
         assert isinstance(slug, str)
 
     def test_empty_title(self) -> None:
@@ -111,8 +114,7 @@ class TestArticleFrontmatter:
         result = render_article_frontmatter(article)
         assert result.startswith("---\n")
         assert result.endswith("---")
-        # 解析 YAML
-        yaml_str = result[4:-4]  # 去掉 --- 包裹
+        yaml_str = result[4:-4]
         fm = yaml.safe_load(yaml_str)
         assert fm["title"] == article.title
         assert fm["category"] == "industry"
@@ -202,17 +204,35 @@ class TestDailySection:
 
 
 class TestDailyHeader:
-    """每日笔记头部渲染测试."""
+    """每日笔记头部渲染测试 — Bases 嵌入代码块."""
 
-    def test_daily_header_with_date(self) -> None:
+    def test_daily_header_contains_base_block(self) -> None:
         result = render_daily_header("2026-04-13")
         assert "# AI News - 2026-04-13" in result
-        assert "dataview" in result
+        assert "```base" in result
+        assert "```" in result
+
+    def test_daily_header_no_dataview(self) -> None:
+        result = render_daily_header("2026-04-13")
+        assert "dataview" not in result
+        assert "dataviewjs" not in result
+
+    def test_daily_header_base_yaml_valid(self) -> None:
+        result = render_daily_header("2026-04-13")
+        # 提取 base 代码块内容
+        start = result.index("```base") + len("```base\n")
+        end = result.index("```", start)
+        base_yaml = result[start:end].strip()
+        parsed = yaml.safe_load(base_yaml)
+        assert "filters" in parsed
+        assert "properties" in parsed
+        assert "views" in parsed
+        assert parsed["filters"]["date"] == "2026-04-13"
 
     def test_daily_header_default_date(self) -> None:
         result = render_daily_header()
         assert "# AI News -" in result
-        assert "dataview" in result
+        assert "```base" in result
 
 
 class TestEntityPage:
@@ -268,58 +288,120 @@ class TestEntityNameNormalization:
         assert "--" not in result
 
 
-class TestDashboardTemplates:
-    """仪表盘模板测试."""
+class TestDashboardBasesYaml:
+    """仪表盘 Bases YAML 模板测试."""
 
-    def test_home_dashboard(self) -> None:
-        result = render_dashboard_home()
-        assert "Home" in result
-        assert "dataview" in result
+    @pytest.fixture()
+    def dashboard_renderers(self) -> dict[str, object]:
+        return {
+            "Home": render_dashboard_home,
+            "Trending": render_dashboard_trending,
+            "Reading-List": render_dashboard_reading_list,
+            "People-Tracker": render_dashboard_people_tracker,
+            "Articles": render_dashboard_articles,
+        }
 
-    def test_trending_dashboard(self) -> None:
-        result = render_dashboard_trending()
-        assert "Trending" in result
-        assert "48" in result
-
-    def test_daily_stats_dashboard(self) -> None:
-        result = render_dashboard_daily_stats()
-        assert "Daily Stats" in result
-
-    def test_weekly_stats_dashboard(self) -> None:
-        result = render_dashboard_weekly_stats()
-        assert "Weekly Stats" in result
-
-    def test_reading_list_dashboard(self) -> None:
-        result = render_dashboard_reading_list()
-        assert "Reading List" in result
-
-    def test_people_tracker_dashboard(self) -> None:
-        result = render_dashboard_people_tracker()
-        assert "People Tracker" in result
-
-    def test_knowledge_graph_dashboard(self) -> None:
-        result = render_dashboard_knowledge_graph()
-        assert "Knowledge Graph" in result
-
-    def test_by_category_dashboard(self) -> None:
-        result = render_dashboard_by_category()
-        assert "By Category" in result
-        assert "Industry" in result
-        assert "Research" in result
-        assert "Tools" in result
-
-    def test_all_dashboards_non_empty(self) -> None:
-        renderers = [
-            render_dashboard_home,
-            render_dashboard_trending,
-            render_dashboard_daily_stats,
-            render_dashboard_weekly_stats,
-            render_dashboard_reading_list,
-            render_dashboard_people_tracker,
-            render_dashboard_knowledge_graph,
-            render_dashboard_by_category,
-        ]
-        for renderer in renderers:
+    def test_all_dashboards_valid_yaml(self, dashboard_renderers: dict) -> None:
+        """验证每个 render_dashboard_*() 返回有效 YAML."""
+        for name, renderer in dashboard_renderers.items():
             content = renderer()
-            assert len(content) > 100
-            assert "```dataview" in content
+            parsed = yaml.safe_load(content)
+            assert isinstance(parsed, dict), f"{name}: YAML 解析结果不是 dict"
+            assert "filters" in parsed, f"{name}: 缺少 filters"
+            assert "properties" in parsed, f"{name}: 缺少 properties"
+            assert "views" in parsed, f"{name}: 缺少 views"
+
+    def test_all_dashboards_no_dataview(self, dashboard_renderers: dict) -> None:
+        """验证返回的字符串中不含 dataview/dataviewjs."""
+        for name, renderer in dashboard_renderers.items():
+            content = renderer()
+            assert "dataview" not in content, f"{name}: 包含 dataview"
+            assert "dataviewjs" not in content, f"{name}: 包含 dataviewjs"
+
+    def test_home_dashboard_views(self) -> None:
+        parsed = yaml.safe_load(render_dashboard_home())
+        views = parsed["views"]
+        assert "today" in views
+        assert "trending" in views
+        assert "weekly" in views
+
+    def test_trending_dashboard_views(self) -> None:
+        parsed = yaml.safe_load(render_dashboard_trending())
+        views = parsed["views"]
+        assert "hot_48h" in views
+        assert "cross_platform" in views
+
+    def test_reading_list_dashboard_views(self) -> None:
+        parsed = yaml.safe_load(render_dashboard_reading_list())
+        views = parsed["views"]
+        assert "unread" in views
+        assert "by_category" in views
+
+    def test_people_tracker_dashboard_views(self) -> None:
+        parsed = yaml.safe_load(render_dashboard_people_tracker())
+        views = parsed["views"]
+        assert "people" in views
+        assert "companies" in views
+        assert "projects" in views
+
+    def test_articles_dashboard_has_summaries(self) -> None:
+        parsed = yaml.safe_load(render_dashboard_articles())
+        assert "summaries" in parsed
+        assert "avg_trend_score" in parsed["summaries"]
+
+    def test_all_dashboards_non_empty(self, dashboard_renderers: dict) -> None:
+        for name, renderer in dashboard_renderers.items():
+            content = renderer()
+            assert len(content) > 50, f"{name}: 内容过短"
+
+
+class TestDashboardsOutput:
+    """仪表盘输出适配测试."""
+
+    def test_dashboards_count_is_5(self) -> None:
+        assert len(DASHBOARDS) == 5
+
+    def test_dashboards_has_expected_names(self) -> None:
+        expected = {"Home", "Trending", "Reading-List", "People-Tracker", "Articles"}
+        assert set(DASHBOARDS.keys()) == expected
+
+    def test_dashboard_suffix_is_base(self) -> None:
+        """验证 init_dashboards 输出路径以 .base 结尾."""
+        for name in DASHBOARDS:
+            path = f"{DASHBOARD_DIR}/{name}.base"
+            assert path.endswith(".base"), f"{name} 路径不以 .base 结尾"
+
+    def test_init_dashboards_creates_base_files(self) -> None:
+        """验证 init_dashboards 生成 5 个 .base 文件."""
+        client = MagicMock()
+        client.get_vault_file.return_value = None  # 所有文件不存在
+        client.put_vault_file.return_value = True
+
+        created, skipped = init_dashboards(client)
+        assert created == 5
+        assert skipped == 0
+
+        # 验证每个调用使用了 .base 后缀
+        for call in client.put_vault_file.call_args_list:
+            path = call[0][0]
+            assert path.endswith(".base"), f"路径不以 .base 结尾: {path}"
+
+    def test_rebuild_dashboards_overwrites(self) -> None:
+        """验证 rebuild_dashboards 正确覆盖已有 .base 文件."""
+        client = MagicMock()
+        client.put_vault_file.return_value = True
+
+        created, skipped = rebuild_dashboards(client)
+        assert created == 5
+        # rebuild 模式不检查现有文件
+        client.get_vault_file.assert_not_called()
+
+    def test_init_dashboards_skips_existing(self) -> None:
+        """非重建模式跳过已有文件."""
+        client = MagicMock()
+        client.get_vault_file.return_value = "existing content"
+        client.put_vault_file.return_value = True
+
+        created, skipped = init_dashboards(client, rebuild=False)
+        assert created == 0
+        assert skipped == 5

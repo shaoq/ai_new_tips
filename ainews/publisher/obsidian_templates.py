@@ -148,14 +148,43 @@ def render_daily_header(date: str | None = None) -> str:
     if date is None:
         date = datetime.now().strftime("%Y-%m-%d")
 
+    base_query = yaml.dump(
+        {
+            "filters": {
+                "folder": "AI-News",
+                "date": date,
+            },
+            "properties": {
+                "relevance": {"type": "number"},
+                "trend_score": {"type": "number"},
+                "source_name": {"type": "text"},
+                "category": {"type": "select"},
+                "status": {"type": "select", "options": ["unread", "reading", "read"]},
+            },
+            "views": {
+                "default": {
+                    "name": "Overview",
+                    "sort": "trend_score DESC",
+                    "columns": [
+                        "file.name",
+                        "relevance",
+                        "source_name",
+                        "category",
+                        "status",
+                    ],
+                },
+            },
+        },
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
+
     parts: list[str] = [
         f"# AI News - {date}\n",
         "## 概览\n",
-        "```dataview",
-        "TABLE relevance AS \"评分\", source_name AS \"来源\", category AS \"分类\"",
-        f"FROM \"AI-News\"",
-        f"WHERE date = date({date})",
-        "SORT trend_score DESC",
+        "```base",
+        base_query.strip(),
         "```\n",
     ]
     return "\n".join(parts)
@@ -228,264 +257,283 @@ def render_entity_page(
     return "\n".join(parts)
 
 
-# ---- 仪表盘模板 ----
+# ---- 仪表盘模板 (Obsidian Bases YAML) ----
+
 
 def render_dashboard_home() -> str:
-    """Home 仪表盘: 总览 + 今日概览 + 7 天趋势."""
-    return """# 🏠 Home
-
-## 今日概览
-
-```dataviewjs
-const pages = dv.pages('"AI-News"').where(p => p.date?.ts);
-const today = new Date().toISOString().slice(0, 10);
-const todayPages = pages.where(p => p.date?.toISODate?.() === today);
-const trending = todayPages.where(p => p.is_trending);
-const unread = todayPages.where(p => p.status === "unread");
-
-dv.table(
-    ["指标", "数值"],
-    [
-        ["今日新增", todayPages.length],
-        ["热点数", trending.length],
-        ["未读数", unread.length],
-        ["分类分布", todayPages.groupBy(p => p.category).map(g => `${g.key}: ${g.rows.length}`).join(" | ")],
-    ]
-);
-```
-
-## 今日热点
-
-```dataview
-TABLE relevance AS "评分", source_name AS "来源", category AS "分类"
-FROM "AI-News"
-WHERE is_trending = true
-WHERE date >= date(today)
-SORT trend_score DESC
-```
-
-## 最近 7 天趋势
-
-```dataviewjs
-const pages = dv.pages('"AI-News"');
-const sevenDaysAgo = moment().subtract(7, "days");
-const recent = pages.where(p => p.date >= sevenDaysAgo);
-const grouped = recent.groupBy(p => p.date.toISODate());
-
-dv.table(
-    ["日期", "文章数", "热点数"],
-    grouped.map(g => [
-        g.key,
-        g.rows.length,
-        g.rows.where(p => p.is_trending).length,
-    ])
-);
-```
-"""
+    """Home 仪表盘: 今日概览 / 今日热点 / 最近 7 天趋势."""
+    return yaml.dump(
+        {
+            "filters": {
+                "folder": "AI-News",
+            },
+            "properties": {
+                "date": {"type": "date"},
+                "relevance": {"type": "number"},
+                "trend_score": {"type": "number"},
+                "is_trending": {"type": "checkbox"},
+                "status": {"type": "select", "options": ["unread", "reading", "read"]},
+                "category": {"type": "select"},
+                "source_name": {"type": "text"},
+            },
+            "views": {
+                "today": {
+                    "name": "Today",
+                    "filter": "date == today()",
+                    "sort": "trend_score DESC",
+                    "columns": [
+                        "file.name",
+                        "relevance",
+                        "source_name",
+                        "category",
+                        "status",
+                    ],
+                },
+                "trending": {
+                    "name": "Trending",
+                    "filter": "is_trending AND date >= today() - dur(1 day)",
+                    "sort": "trend_score DESC",
+                    "columns": [
+                        "file.name",
+                        "relevance",
+                        "source_name",
+                        "category",
+                    ],
+                },
+                "weekly": {
+                    "name": "7-Day Trend",
+                    "filter": "date >= today() - dur(7 days)",
+                    "sort": "date DESC, trend_score DESC",
+                    "columns": [
+                        "file.name",
+                        "date",
+                        "relevance",
+                        "source_name",
+                        "category",
+                        "is_trending",
+                    ],
+                },
+            },
+        },
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
 
 
 def render_dashboard_trending() -> str:
     """Trending 仪表盘: 48h 热点 + 跨平台热点."""
-    return """# 🔥 Trending
-
-## 近 48 小时热点
-
-```dataview
-TABLE relevance AS "评分", category AS "分类", date AS "日期"
-FROM "AI-News"
-WHERE is_trending = true
-WHERE date >= date(today) - dur(2 days)
-SORT trend_score DESC
-LIMIT 20
-```
-
-## 跨平台热点
-
-```dataview
-TABLE length(platforms) AS "平台数", trend_score AS "评分", category AS "分类"
-FROM "AI-News"
-WHERE length(platforms) >= 3
-WHERE date >= date(today) - dur(7 days)
-SORT length(platforms) DESC, trend_score DESC
-LIMIT 20
-```
-"""
-
-
-def render_dashboard_daily_stats() -> str:
-    """Daily-Stats 仪表盘: 来源分布 + 分类分布."""
-    return """# 📊 Daily Stats
-
-## 来源分布
-
-```dataviewjs
-const pages = dv.pages('"AI-News"').where(p => p.date?.toISODate?.() === new Date().toISOString().slice(0, 10));
-const grouped = pages.groupBy(p => p.source_name);
-
-dv.table(
-    ["来源", "文章数", "占比"],
-    grouped.map(g => [
-        g.key || "未知",
-        g.rows.length,
-        ((g.rows.length / pages.length) * 100).toFixed(1) + "%",
-    ])
-);
-```
-
-## 分类分布
-
-```dataview
-TABLE length(rows) AS "数量", default(rows.relevance, 0) AS "平均评分"
-FROM "AI-News"
-WHERE date = date(today)
-FLATTEN category
-GROUP BY category
-SORT length(rows) DESC
-```
-"""
-
-
-def render_dashboard_weekly_stats() -> str:
-    """Weekly-Stats 仪表盘: 周概览 + 每日文章数."""
-    return """# 📅 Weekly Stats
-
-## 本周概览
-
-```dataviewjs
-const pages = dv.pages('"AI-News"');
-const weekAgo = moment().subtract(7, "days");
-const recent = pages.where(p => p.date >= weekAgo);
-const trending = recent.where(p => p.is_trending);
-
-dv.table(
-    ["指标", "数值"],
-    [
-        ["7天文章总数", recent.length],
-        ["热点数", trending.length],
-        ["日均文章数", (recent.length / 7).toFixed(1)],
-    ]
-);
-```
-
-## 每日文章数
-
-```dataview
-TABLE length(rows) AS "文章数"
-FROM "AI-News"
-WHERE date >= date(today) - dur(7 days)
-FLATTEN date
-GROUP BY date
-SORT date DESC
-```
-"""
+    return yaml.dump(
+        {
+            "filters": {
+                "folder": "AI-News",
+            },
+            "properties": {
+                "date": {"type": "date"},
+                "relevance": {"type": "number"},
+                "trend_score": {"type": "number"},
+                "is_trending": {"type": "checkbox"},
+                "category": {"type": "select"},
+                "platforms": {"type": "list"},
+            },
+            "views": {
+                "hot_48h": {
+                    "name": "48h Hot",
+                    "filter": "is_trending AND date >= today() - dur(2 days)",
+                    "sort": "trend_score DESC",
+                    "columns": [
+                        "file.name",
+                        "relevance",
+                        "category",
+                        "date",
+                    ],
+                },
+                "cross_platform": {
+                    "name": "Cross-Platform",
+                    "filter": "length(platforms) >= 3 AND date >= today() - dur(7 days)",
+                    "sort": "length(platforms) DESC, trend_score DESC",
+                    "columns": [
+                        "file.name",
+                        "platforms",
+                        "trend_score",
+                        "category",
+                        "date",
+                    ],
+                },
+            },
+        },
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
 
 
 def render_dashboard_reading_list() -> str:
-    """Reading-List 仪表盘: 未读列表 + 本周未读热点."""
-    return """# 📖 Reading List
-
-## 未读文章
-
-```dataview
-TABLE relevance AS "评分", category AS "分类", date AS "日期"
-FROM "AI-News"
-WHERE status = "unread"
-SORT relevance DESC
-LIMIT 50
-```
-
-## 本周未读热点
-
-```dataview
-TABLE relevance AS "评分", category AS "分类"
-FROM "AI-News"
-WHERE status = "unread" AND is_trending = true
-WHERE date >= date(today) - dur(7 days)
-SORT trend_score DESC
-```
-"""
+    """Reading-List 仪表盘: 未读列表 + 按分类浏览."""
+    return yaml.dump(
+        {
+            "filters": {
+                "folder": "AI-News",
+            },
+            "properties": {
+                "date": {"type": "date"},
+                "relevance": {"type": "number"},
+                "trend_score": {"type": "number"},
+                "is_trending": {"type": "checkbox"},
+                "status": {"type": "select", "options": ["unread", "reading", "read"]},
+                "category": {"type": "select"},
+                "source_name": {"type": "text"},
+            },
+            "views": {
+                "unread": {
+                    "name": "Unread",
+                    "filter": "status == \"unread\"",
+                    "sort": "relevance DESC",
+                    "columns": [
+                        "file.name",
+                        "relevance",
+                        "category",
+                        "date",
+                        "status",
+                    ],
+                },
+                "by_category": {
+                    "name": "By Category",
+                    "sort": "category ASC, relevance DESC",
+                    "columns": [
+                        "file.name",
+                        "category",
+                        "relevance",
+                        "date",
+                        "status",
+                    ],
+                    "group_by": "category",
+                },
+            },
+        },
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
 
 
 def render_dashboard_people_tracker() -> str:
-    """People-Tracker 仪表盘: 活跃度 Top 20 + 新发现."""
-    return """# 👥 People Tracker
-
-## 活跃度 Top 20（30 天）
-
-```dataview
-TABLE mention_count AS "提及次数", last_seen AS "最近提及"
-FROM "AI-News/Entities/People"
-WHERE date(last_seen) >= date(today) - dur(30 days)
-SORT mention_count DESC
-LIMIT 20
-```
-
-## 新发现人物（7 天内首次出现）
-
-```dataview
-TABLE first_seen AS "首次出现", mention_count AS "提及次数"
-FROM "AI-News/Entities/People"
-WHERE date(first_seen) >= date(today) - dur(7 days)
-SORT first_seen DESC
-```
-"""
-
-
-def render_dashboard_knowledge_graph() -> str:
-    """Knowledge-Graph 仪表盘: 知识图谱入口."""
-    return """# 🕸️ Knowledge Graph
-
-打开 Obsidian Graph View 查看完整知识图谱。
-
-快捷键: `Ctrl+G` (Windows) / `Cmd+G` (macOS)
-
-## 人物 Top 30
-
-```dataview
-TABLE mention_count AS "提及次数"
-FROM "AI-News/Entities/People"
-SORT mention_count DESC
-LIMIT 30
-```
-
-## 公司 Top 20
-
-```dataview
-TABLE mention_count AS "提及次数"
-FROM "AI-News/Entities/Companies"
-SORT mention_count DESC
-LIMIT 20
-```
-
-## 项目 Top 20
-
-```dataview
-TABLE mention_count AS "提及次数"
-FROM "AI-News/Entities/Projects"
-SORT mention_count DESC
-LIMIT 20
-```
-"""
+    """People-Tracker 仪表盘: People / Companies / Projects."""
+    return yaml.dump(
+        {
+            "filters": {
+                "folder": "AI-News/Entities",
+            },
+            "properties": {
+                "type": {
+                    "type": "select",
+                    "options": ["person", "company", "project", "technology"],
+                },
+                "mention_count": {"type": "number"},
+                "first_seen": {"type": "date"},
+                "last_seen": {"type": "date"},
+            },
+            "views": {
+                "people": {
+                    "name": "People",
+                    "filter": "type == \"person\"",
+                    "sort": "mention_count DESC",
+                    "columns": [
+                        "file.name",
+                        "mention_count",
+                        "last_seen",
+                    ],
+                },
+                "companies": {
+                    "name": "Companies",
+                    "filter": "type == \"company\"",
+                    "sort": "mention_count DESC",
+                    "columns": [
+                        "file.name",
+                        "mention_count",
+                        "last_seen",
+                    ],
+                },
+                "projects": {
+                    "name": "Projects",
+                    "filter": "type == \"project\"",
+                    "sort": "mention_count DESC",
+                    "columns": [
+                        "file.name",
+                        "mention_count",
+                        "last_seen",
+                    ],
+                },
+            },
+        },
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
 
 
-def render_dashboard_by_category() -> str:
-    """By-Category 仪表盘: 按分类视图."""
-    categories = ["Industry", "Research", "Tools", "Safety", "Policy"]
-    sections: list[str] = ["# 📂 By Category\n"]
-
-    for cat in categories:
-        sections.append(f"## {cat}\n")
-        sections.append("```dataview")
-        sections.append(
-            f'TABLE relevance AS "评分", date AS "日期", source_name AS "来源"'
-        )
-        sections.append('FROM "AI-News"')
-        sections.append(f'WHERE category = "{cat.lower()}"')
-        sections.append("WHERE date >= date(today) - dur(30 days)")
-        sections.append("SORT relevance DESC")
-        sections.append("```\n")
-
-    return "\n".join(sections)
+def render_dashboard_articles() -> str:
+    """Articles 仪表盘: 全量文章数据库视图，含 trend_score Average 汇总."""
+    return yaml.dump(
+        {
+            "filters": {
+                "folder": "AI-News",
+            },
+            "properties": {
+                "date": {"type": "date"},
+                "relevance": {"type": "number"},
+                "trend_score": {"type": "number"},
+                "is_trending": {"type": "checkbox"},
+                "status": {"type": "select", "options": ["unread", "reading", "read"]},
+                "category": {"type": "select"},
+                "source_name": {"type": "text"},
+                "platforms": {"type": "list"},
+            },
+            "summaries": {
+                "total": {"type": "count"},
+                "avg_relevance": {
+                    "type": "average",
+                    "property": "relevance",
+                },
+                "avg_trend_score": {
+                    "type": "average",
+                    "property": "trend_score",
+                },
+            },
+            "views": {
+                "all": {
+                    "name": "All Articles",
+                    "sort": "date DESC, trend_score DESC",
+                    "columns": [
+                        "file.name",
+                        "date",
+                        "relevance",
+                        "trend_score",
+                        "category",
+                        "source_name",
+                        "status",
+                        "is_trending",
+                    ],
+                },
+                "by_source": {
+                    "name": "By Source",
+                    "sort": "source_name ASC, date DESC",
+                    "columns": [
+                        "source_name",
+                        "file.name",
+                        "date",
+                        "relevance",
+                        "category",
+                        "status",
+                    ],
+                    "group_by": "source_name",
+                },
+            },
+        },
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
 
 
 def normalize_entity_name(name: str) -> str:
