@@ -37,6 +37,12 @@ curl -k -H "Authorization: Bearer YOUR_KEY" https://127.0.0.1:27124/vault/
 
 **Obsidian 必须运行中**，插件随 Obsidian 进程启动。
 
+> **重要：API 路径前缀说明**
+>
+> Obsidian Local REST API 插件 v3.x **不使用 `/v0` 前缀**。API 路径直接为 `/vault/...`、`/periodic/daily/`、`/search/simple/` 等。
+> 早期代码中曾误设 `API_PREFIX = "/v0"`，导致所有 PUT 请求返回 404。已修正为 `API_PREFIX = ""`。
+> 如果你在使用中遇到 404 错误，请首先检查 API 路径中是否包含了多余的前缀。
+
 ## 写入策略
 
 ### 写入方式

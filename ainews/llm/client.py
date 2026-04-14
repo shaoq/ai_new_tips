@@ -1,4 +1,4 @@
-"""LLM 客户端：基于 OpenAI 兼容 API 的调用封装."""
+"""LLM 客户端：基于 Anthropic Messages API 协议封装."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0  # seconds
 BACKOFF_MULTIPLIER = 2.0
-CALL_INTERVAL = 0.5  # seconds between calls
+ANTHROPIC_VERSION = "2023-06-01"
 
 
 class LLMClientError(Exception):
@@ -29,7 +29,7 @@ class LLMResponseParseError(Exception):
 
 
 class LLMClient:
-    """LLM 客户端，使用 OpenAI 兼容 API 协议."""
+    """LLM 客户端，使用 Anthropic Messages API 协议."""
 
     def __init__(self, config: LLMConfig) -> None:
         self._config = config
@@ -40,10 +40,11 @@ class LLMClient:
         self._client = httpx.Client(
             base_url=self._base_url,
             headers={
-                "Authorization": f"Bearer {self._api_key}",
+                "x-api-key": self._api_key,
+                "anthropic-version": ANTHROPIC_VERSION,
                 "Content-Type": "application/json",
             },
-            timeout=60.0,
+            timeout=120.0,
         )
 
     def call(self, prompt: str) -> str:
@@ -88,11 +89,11 @@ class LLMClient:
         """执行单次 API 调用."""
         payload: dict[str, Any] = {
             "model": self._model,
-            "messages": [{"role": "user", "content": prompt}],
             "max_tokens": self._max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
         }
 
-        response = self._client.post("/chat/completions", json=payload)
+        response = self._client.post("/v1/messages", json=payload)
 
         if response.status_code == 401 or response.status_code == 403:
             raise _NonRetryableError(
@@ -117,7 +118,11 @@ class LLMClient:
 
         data = response.json()
         try:
-            return data["choices"][0]["message"]["content"]
+            content_blocks = data["content"]
+            text_parts = [
+                block["text"] for block in content_blocks if block["type"] == "text"
+            ]
+            return "\n".join(text_parts)
         except (KeyError, IndexError) as exc:
             raise _NonRetryableError(
                 f"响应格式异常: {json.dumps(data, ensure_ascii=False)}"
@@ -140,6 +145,7 @@ def parse_json_response(raw: str) -> dict[str, Any]:
     """从 LLM 响应文本中提取 JSON.
 
     支持纯 JSON 文本和 markdown code block 包裹的 JSON.
+    自动清理 JSON 字符串值中的非法控制字符.
 
     Args:
         raw: LLM 原始响应文本
@@ -160,6 +166,10 @@ def parse_json_response(raw: str) -> dict[str, Any]:
         json_text = code_block_match.group(1).strip()
     else:
         json_text = text
+
+    # 清理非法控制字符（包括 JSON 字符串值中的字面换行符）
+    # 移除所有 0x00-0x1F 控制字符；已转义的 \n \r \t 等不受影响（它们是 \ + 字母）
+    json_text = re.sub(r'[\x00-\x1f]', '', json_text)
 
     try:
         result = json.loads(json_text)

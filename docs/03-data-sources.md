@@ -59,10 +59,11 @@ AI_KEYWORDS = [
 
 ### 接入方式
 
-- **端点**: `http://export.arxiv.org/api/query`
+- **端点**: `https://export.arxiv.org/api/query`
 - **格式**: Atom 1.0 XML
 - **速率**: 1 请求/3 秒
 - **认证**: 不需要
+- **注意**: HTTP 客户端使用 `follow_redirects=True`，以正确处理 ArXiv 的重定向行为
 
 ### 监控分类
 
@@ -77,7 +78,7 @@ stat.ML - Machine Learning (Statistics)
 ### 查询示例
 
 ```
-http://export.arxiv.org/api/query?
+https://export.arxiv.org/api/query?
   search_query=cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CL
   &sortBy=submittedDate
   &sortOrder=descending
@@ -101,22 +102,27 @@ pip install arxiv
 |----|---------|---------|
 | OpenAI Blog | `https://openai.com/blog/rss.xml` | 产品发布、研究 |
 | Google DeepMind | `https://deepmind.google/blog/rss/` | 研究突破 |
-| Anthropic News | `https://www.anthropic.com/feed.xml` | Claude 更新、安全研究 |
-| Meta AI Blog | `https://ai.meta.com/blog/rss/` | Llama 发布、开源研究 |
 | Hugging Face Blog | `https://huggingface.co/blog/feed.xml` | 开源 ML、模型发布 |
 | MarkTechPost | `https://www.marktechpost.com/feed/` | AI 研究日报 |
 | MIT Tech Review AI | `https://www.technologyreview.com/feed/topic/artificial-intelligence/` | 深度报道 |
 | VentureBeat AI | `https://venturebeat.com/category/ai/feed/` | 产业新闻 |
 | The Gradient | `https://thegradient.pub/rss/` | 研究视角 |
 | BAIR Blog | `https://bair.berkeley.edu/blog/index.xml` | 学术研究 |
+| Reddit r/MachineLearning | `https://www.reddit.com/r/MachineLearning/.rss` | 技术研究、论文讨论 |
+| Reddit r/LocalLLaMA | `https://www.reddit.com/r/LocalLLaMA/.rss` | 本地模型、开源 LLM |
+| Reddit r/ChatGPT | `https://www.reddit.com/r/ChatGPT/.rss` | ChatGPT 新闻和讨论 |
 
 ### RSS 解析
 
 ```bash
-pip install feedparser
+pip install feedparser httpx
 ```
 
 增量机制：使用 HTTP `ETag` / `Last-Modified` 头，仅获取新内容。
+
+**HTTP 获取方式**: Fetcher 现在使用 httpx 进行 HTTP 请求，再将响应传递给 feedparser 解析。相比直接使用 feedparser 的内置 HTTP 客户端，httpx 对重定向、自定义请求头等场景的处理更为健壮。
+
+**条目数量限制**: 每个 feed 最多处理 `MAX_ENTRIES_PER_FEED=30` 条条目，避免在单次采集中拉取过多历史数据。
 
 ---
 

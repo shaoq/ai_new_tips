@@ -14,7 +14,7 @@ from ainews.fetcher.base import BaseFetcher
 
 logger = logging.getLogger(__name__)
 
-ARXIV_API = "http://export.arxiv.org/api/query"
+ARXIV_API = "https://export.arxiv.org/api/query"
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
 ARXIV_NS = "http://arxiv.org/schemas/atom"
@@ -33,7 +33,7 @@ class ArXivFetcher(BaseFetcher):
 
     def __init__(self, config: Any = None) -> None:
         super().__init__(source_name="arxiv", config=config)
-        self._client = httpx.Client(timeout=60.0)
+        self._client = httpx.Client(timeout=60.0, follow_redirects=True)
         self.categories: list[str] = DEFAULT_CATEGORIES
         if config and hasattr(config, "arxiv_categories"):
             cats = getattr(config, "arxiv_categories", None)

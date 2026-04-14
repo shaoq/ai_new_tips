@@ -199,7 +199,7 @@ class BaseFetcher(ABC):
     # ------------------------------------------------------------------
 
     def _save_articles(self, items: list[dict[str, Any]]) -> list[Article]:
-        """将去重后的条目批量写入 articles 表."""
+        """将去重后的条目逐条写入 articles 表，跳过已存在的 URL."""
         if not items:
             return []
 
@@ -209,9 +209,19 @@ class BaseFetcher(ABC):
         with self._get_session() as session:
             for item in items:
                 url = item["url"]
+                url_hash = self._url_hash(url)
+
+                # 检查是否已存在（防御竞态）
+                existing = session.exec(
+                    select(Article).where(Article.url_hash == url_hash)
+                ).first()
+                if existing is not None:
+                    logger.debug("[%s] 跳过已存在 URL: %s", self.source_name, url)
+                    continue
+
                 article = Article(
                     url=url,
-                    url_hash=self._url_hash(url),
+                    url_hash=url_hash,
                     title=item.get("title", ""),
                     content_raw=item.get("content_raw", ""),
                     source=item.get("source", self.source_name),
@@ -225,22 +235,15 @@ class BaseFetcher(ABC):
                     imported_at=now,
                 )
                 session.add(article)
+                session.flush()  # 逐条 flush 以获取 id 并捕获单条冲突
+
                 articles.append(article)
 
-            session.commit()
-
-            # 在 session 仍然打开时刷新所有对象以获取 id
-            article_ids: list[int | None] = []
-            for article in articles:
-                session.refresh(article)
-                article_ids.append(article.id)
-
-            # 写入 source_metrics（HN score 等）
-            for item, article_id in zip(items, article_ids):
+                # 写入 source_metrics
                 metrics = item.get("metrics")
-                if metrics and article_id is not None:
+                if metrics and article.id is not None:
                     metric = SourceMetric(
-                        article_id=article_id,
+                        article_id=article.id,
                         source=self.source_name,
                         platform_score=metrics.get("platform_score", 0.0),
                         comment_count=metrics.get("comment_count", 0),
@@ -248,6 +251,7 @@ class BaseFetcher(ABC):
                         fetched_at=now,
                     )
                     session.add(metric)
+
             session.commit()
 
             # 使对象与 session 分离但保留已加载的属性

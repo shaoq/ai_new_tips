@@ -86,9 +86,10 @@ class TestDefaultFeeds:
     def test_default_feeds_exist(self) -> None:
         assert "openai-blog" in DEFAULT_RSS_FEEDS
         assert "deepmind" in DEFAULT_RSS_FEEDS
-        assert "anthropic" in DEFAULT_RSS_FEEDS
-        assert "meta-ai" in DEFAULT_RSS_FEEDS
         assert "huggingface" in DEFAULT_RSS_FEEDS
+        assert "reddit-machinelearning" in DEFAULT_RSS_FEEDS
+        assert "reddit-localllama" in DEFAULT_RSS_FEEDS
+        assert "reddit-chatgpt" in DEFAULT_RSS_FEEDS
         assert len(DEFAULT_RSS_FEEDS) >= 6
 
 

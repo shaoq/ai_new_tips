@@ -34,6 +34,9 @@ _DEFAULT_ENTITIES: dict[str, list[str]] = {
 # 每次调用间隔（秒）
 CALL_INTERVAL = 0.5
 
+# 每次运行默认处理上限（防止积压时单次运行时间过长）
+DEFAULT_BATCH_LIMIT = 50
+
 
 @dataclass(frozen=True)
 class ProcessResult:
@@ -96,16 +99,21 @@ class ArticleProcessor:
                 error=str(exc),
             )
 
-    def process_unprocessed(self, session: Session) -> list[ProcessResult]:
+    def process_unprocessed(self, session: Session, limit: int | None = None) -> list[ProcessResult]:
         """处理所有 processed=False 的文章.
 
         Args:
             session: 数据库 session
+            limit: 限制处理数量。None 使用默认上限 50，0 表示不限制
 
         Returns:
             所有处理结果列表
         """
+        batch_limit = DEFAULT_BATCH_LIMIT if limit is None else (limit if limit > 0 else None)
+
         statement = select(Article).where(Article.processed == False)  # noqa: E712
+        if batch_limit is not None:
+            statement = statement.limit(batch_limit)
         articles = session.exec(statement).all()
 
         if not articles:

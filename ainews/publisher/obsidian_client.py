@@ -12,8 +12,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# API 版本前缀
-API_PREFIX = "/v0"
+# Obsidian Local REST API 直接使用根路径（v3.x 不需要版本前缀）
+API_PREFIX = ""
 
 # 重试配置
 MAX_RETRIES = 3

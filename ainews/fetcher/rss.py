@@ -14,16 +14,20 @@ from ainews.fetcher.base import BaseFetcher
 
 logger = logging.getLogger(__name__)
 
+# 每个 RSS 源最大拉取条目数（防止首次全量拉取过多）
+MAX_ENTRIES_PER_FEED = 30
+
 # 默认 RSS 源列表
 DEFAULT_RSS_FEEDS: dict[str, str] = {
     "openai-blog": "https://openai.com/blog/rss.xml",
     "deepmind": "https://deepmind.google/blog/rss.xml",
-    "anthropic": "https://www.anthropic.com/feed.xml",
-    "meta-ai": "https://ai.meta.com/blog/rss/",
     "huggingface": "https://huggingface.co/blog/feed.xml",
     "marktechpost": "https://www.marktechpost.com/feed/",
-    "mit-tech-review": "https://www.technologyreview.com/feed/",
     "venturebeat-ai": "https://venturebeat.com/category/ai/feed/",
+    # Reddit RSS（无需 OAuth，替代 PRAW 采集器）
+    "reddit-machinelearning": "https://www.reddit.com/r/MachineLearning/.rss",
+    "reddit-localllama": "https://www.reddit.com/r/LocalLLaMA/.rss",
+    "reddit-chatgpt": "https://www.reddit.com/r/ChatGPT/.rss",
 }
 
 
@@ -89,18 +93,30 @@ class RSSFetcher(BaseFetcher):
                 # 如果 cursor 不是 JSON，当作时间水印
                 pass
 
-        # 使用 feedparser 解析
-        feed: Any = feedparser.parse(
-            feed_url,
-            etag=etag,
-            modified=last_modified,
-            request_headers={} if not (etag or last_modified) else {},
-        )
+        # 先用 httpx 获取内容，处理重定向和非标准 XML
+        try:
+            headers: dict[str, str] = {}
+            if etag:
+                headers["If-None-Match"] = etag
+            if last_modified:
+                headers["If-Modified-Since"] = last_modified
 
-        # 检查是否为 304 Not Modified
-        if hasattr(feed, "status") and feed.status == 304:
-            logger.info("[rss:%s] 304 Not Modified，无新内容", feed_name)
-            return []
+            resp = self._client.get(feed_url, headers=headers)
+            if resp.status_code == 304:
+                logger.info("[rss:%s] 304 Not Modified，无新内容", feed_name)
+                return []
+            resp.raise_for_status()
+            content = resp.text
+        except Exception as exc:
+            logger.warning("[rss:%s] HTTP 获取失败: %s", feed_name, exc)
+            # 降级：让 feedparser 直接请求
+            content = None
+
+        # 使用 feedparser 解析
+        if content is not None:
+            feed: Any = feedparser.parse(content)
+        else:
+            feed = feedparser.parse(feed_url)
 
         if feed.bozo and not feed.entries:
             logger.warning("[rss:%s] 解析异常: %s", feed_name, feed.bozo_exception)
@@ -108,6 +124,10 @@ class RSSFetcher(BaseFetcher):
 
         items: list[dict[str, Any]] = []
         for entry in feed.entries:
+            if len(items) >= MAX_ENTRIES_PER_FEED:
+                logger.info("[rss:%s] 达到单源上限 %d 条，截断", feed_name, MAX_ENTRIES_PER_FEED)
+                break
+
             url = getattr(entry, "link", None) or getattr(entry, "href", None)
             if not url:
                 continue

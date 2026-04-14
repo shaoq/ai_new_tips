@@ -10,27 +10,35 @@ llm:
   base_url: "https://api.anthropic.com"    # 用户自配
   api_key: "sk-ant-xxx"                     # 用户自配
   model: "claude-haiku-4-5-20251001"        # 用户自配
-  max_tokens: 1024
+  max_tokens: 4096
 ```
 
 ### 客户端抽象
 
 ```python
-# 统一使用 Anthropic 协议 (Messages API)
-# 兼容所有支持 Anthropic 协议的服务商
+# 基于 httpx 直接调用 Anthropic Messages API 协议
+# 兼容所有支持 Anthropic 协议的服务商（仅需 base_url + api_key）
 
-from anthropic import Anthropic
+import httpx
 
-client = Anthropic(
+client = httpx.Client(
     base_url=config.llm.base_url,
-    api_key=config.llm.api_key,
+    headers={
+        "x-api-key": config.llm.api_key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    },
+    timeout=120.0,
 )
 
-response = client.messages.create(
-    model=config.llm.model,
-    max_tokens=config.llm.max_tokens,
-    messages=[{"role": "user", "content": prompt}]
-)
+response = client.post("/v1/messages", json={
+    "model": config.llm.model,
+    "max_tokens": config.llm.max_tokens,
+    "messages": [{"role": "user", "content": prompt}],
+})
+
+# 响应格式: {"content": [{"type": "text", "text": "..."}], ...}
+text = "\n".join(block["text"] for block in response.json()["content"] if block["type"] == "text")
 ```
 
 ## 处理能力
@@ -210,6 +218,14 @@ response = client.messages.create(
     }
 }
 ```
+
+### JSON 解析健壮性
+
+`parse_json_response` 函数对 LLM 返回的原始文本做了两层防御处理，确保 JSON 解析的稳定性：
+
+1. **控制字符清除**：在调用 `json.loads()` 之前，使用正则 `[\x00-\x1f]` 移除所有 ASCII 控制字符。这主要应对 LLM 在 JSON 字符串值中输出未转义的换行符 (`\n`)、制表符 (`\t`) 或其他控制字符的情况——尤其是 `summary_zh`（中文摘要）字段中出现此类问题的概率较高。
+
+2. **Markdown 代码块提取**：当 LLM 将 JSON 包裹在 Markdown 代码块（` ```json ... ``` `）中时，函数会自动提取其中的 JSON 内容再进行解析，兼容 LLM 偶尔不严格遵守"只返回 JSON"指令的情况。
 
 ## 成本估算
 

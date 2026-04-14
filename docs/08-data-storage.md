@@ -161,6 +161,12 @@ CREATE TABLE push_log (
 | GitHub | 基于创建时间 | `last_created_at` |
 | 中文源 | 基于时间戳 | `last_item_timestamp` |
 
+### 处理批次限制
+
+process 步骤每次运行默认最多处理 50 篇未处理文章（`DEFAULT_BATCH_LIMIT=50`），
+可通过 `--limit` 参数配置。如果未处理文章数超过 50，需要多次运行或使用
+`ainews process --limit 0`（0 表示不限制）来处理全部。
+
 ### 去重机制
 
 ```
@@ -170,6 +176,8 @@ CREATE TABLE push_log (
     ├─ URL → SHA256 hash
     ├─ articles.url UNIQUE 约束
     └─ 同一 URL 绝对不会重复入库
+    注意: 实现采用逐条检查+写入（check+flush）而非批量 INSERT，
+         以避免 UNIQUE 约束冲突导致整个批次失败
 
   Layer 2: 内容指纹去重 (模糊匹配)
     ├─ 标题相似度计算 (SequenceMatcher / sentence-transformers)

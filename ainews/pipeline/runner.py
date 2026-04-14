@@ -49,6 +49,7 @@ class RunOptions:
     trending_only_push: bool = False
     dry_run: bool = False
     verbose: bool = False
+    limit: int = 0
 
 
 @dataclass

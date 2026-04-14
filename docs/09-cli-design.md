@@ -88,6 +88,8 @@ ainews run --trending-only-push     # 只推送热点 (trend_score ≥ 8)
 ainews run --skip-sync              # 不同步 Obsidian
 ainews run -v / --verbose           # 详细日志
 ainews run --dry-run                # 只看会做什么，不实际执行
+ainews run --limit 20               # 限制处理文章数量
+ainews run --limit 0                # 不限制数量（处理所有）
 ```
 
 执行流程:

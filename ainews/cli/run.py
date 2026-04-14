@@ -18,6 +18,7 @@ def run(
     no_push: bool = typer.Option(False, "--no-push", "--skip-push", help="跳过钉钉推送"),
     trending_only_push: bool = typer.Option(False, "--trending-only-push", help="仅推送热点文章"),
     skip_sync: bool = typer.Option(False, "--skip-sync", help="跳过 Obsidian 同步"),
+    limit: int = typer.Option(0, "--limit", help="限制处理文章数量（默认50，0=不限制）"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="启用详细日志"),
     dry_run: bool = typer.Option(False, "--dry-run", help="模拟模式，不实际执行"),
 ) -> None:
@@ -34,6 +35,7 @@ def run(
         trending_only_push=trending_only_push,
         dry_run=dry_run,
         verbose=verbose,
+        limit=limit,
     )
 
     steps = _build_steps()
@@ -88,16 +90,12 @@ def _build_steps() -> list[PipelineStep]:
 
 def _step_fetch(options: RunOptions) -> int:
     """Fetch 步骤."""
-    from ainews.fetcher.runner import FetchRunner
-    from ainews.storage.database import init_db, get_session
+    from ainews.fetcher.runner import run_fetch
 
-    init_db()
-    with get_session() as session:
-        runner = FetchRunner(session)
-        sources = options.source.split(",") if options.source else None
-        backfill = options.backfill or None
-        summary = runner.run(sources=sources, backfill=backfill)
-        return summary.total_fetched
+    sources = options.source.split(",") if options.source else None
+    backfill_days = int(options.backfill.rstrip("d")) if options.backfill else None
+    summary = run_fetch(sources=sources, backfill_days=backfill_days)
+    return summary.total_articles
 
 
 def _step_process(options: RunOptions) -> int:
@@ -111,8 +109,9 @@ def _step_process(options: RunOptions) -> int:
     config = get_config()
     llm = LLMClient(config.llm)
     with get_session() as session:
-        processor = ArticleProcessor(llm, session)
-        results = processor.process_unprocessed()
+        processor = ArticleProcessor(llm)
+        limit = options.limit if options.limit > 0 else None  # None → 使用默认50
+        results = processor.process_unprocessed(session, limit=limit)
         return len(results)
 
 
@@ -123,8 +122,8 @@ def _step_dedup(options: RunOptions) -> int:
 
     init_db()
     with get_session() as session:
-        count = dedup_articles(session)
-        return count
+        duplicates = dedup_articles(session)
+        return len(duplicates)
 
 
 def _step_trend(options: RunOptions) -> int:
@@ -134,21 +133,29 @@ def _step_trend(options: RunOptions) -> int:
 
     init_db()
     with get_session() as session:
-        count = update_trend_scores(session)
-        return count
+        scores = update_trend_scores(session)
+        return len(scores)
 
 
 def _step_sync(options: RunOptions) -> int:
     """Obsidian 同步步骤."""
     from ainews.publisher.article_sync import sync_articles
     from ainews.publisher.daily_note import sync_daily_note
+    from ainews.publisher.obsidian_client import ObsidianClient
+    from ainews.config.loader import get_config
     from ainews.storage.database import init_db, get_session
 
     init_db()
+    config = get_config()
+    client = ObsidianClient(
+        api_key=config.obsidian.api_key,
+        port=config.obsidian.port,
+        vault_path=config.obsidian.vault_path,
+    )
     with get_session() as session:
-        articles = sync_articles(session)
-        sync_daily_note(session, articles)
-        return len(articles)
+        synced, skipped = sync_articles(session, client)
+        sync_daily_note(client, [])
+        return synced
 
 
 def _step_push(options: RunOptions) -> int:
@@ -166,9 +173,9 @@ def _step_push(options: RunOptions) -> int:
         client = DingTalkClient(config.dingtalk.webhook_url, config.dingtalk.secret)
 
         if options.trending_only_push:
-            articles = strategy.query_articles("trending")
+            articles = strategy.query_trending_articles()
         else:
-            articles = strategy.query_articles("daily")
+            articles = strategy.query_morning_articles()
 
         if not articles:
             return 0

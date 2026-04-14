@@ -11,10 +11,10 @@ from pydantic import BaseModel, field_validator, model_validator
 class LLMConfig(BaseModel):
     """LLM 配置."""
 
-    base_url: str = "https://api.openai.com/v1"
+    base_url: str = "https://api.anthropic.com"
     api_key: str = ""
-    model: str = "gpt-4o"
-    max_tokens: int = 1024
+    model: str = "claude-sonnet-4-20250514"
+    max_tokens: int = 4096
 
     @field_validator("base_url")
     @classmethod
