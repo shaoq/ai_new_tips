@@ -52,7 +52,15 @@ def _ensure_registered() -> None:
     from ainews.fetcher.hackernews import HackerNewsFetcher
     from ainews.fetcher.arxiv import ArXivFetcher
     from ainews.fetcher.rss import RSSFetcher
+    from ainews.fetcher.reddit import RedditFetcher
+    from ainews.fetcher.hf_papers import HFPapersFetcher
+    from ainews.fetcher.github import GitHubFetcher
+    from ainews.fetcher.chinese import ChineseFetcher
 
     register("hackernews", HackerNewsFetcher)
     register("arxiv", ArXivFetcher)
     register("rss", RSSFetcher)
+    register("reddit", RedditFetcher)
+    register("hf_papers", HFPapersFetcher)
+    register("github", GitHubFetcher)
+    register("chinese", ChineseFetcher)

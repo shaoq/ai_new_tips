@@ -60,6 +60,60 @@ class SourceConfig(BaseModel):
     keywords: list[str] = []
 
 
+class RedditConfig(BaseModel):
+    """Reddit 数据源配置."""
+
+    enabled: bool = True
+    client_id: str = ""
+    client_secret: str = ""
+    user_agent: str = "ai-news-tips/1.0"
+    subreddits: list[str] = ["MachineLearning", "LocalLLaMA", "ChatGPT"]
+    fetch_interval_minutes: int = 30
+
+
+class HFPapersConfig(BaseModel):
+    """HuggingFace Daily Papers 配置."""
+
+    enabled: bool = True
+    fetch_interval_minutes: int = 360
+    min_upvotes: int = 10
+
+
+class GitHubConfig(BaseModel):
+    """GitHub Trending 配置."""
+
+    enabled: bool = True
+    token: str = ""
+    topics: list[str] = ["machine-learning", "llm", "ai", "transformer"]
+    languages: list[str] = ["python", "typescript"]
+    min_stars: int = 50
+    fetch_interval_minutes: int = 360
+
+
+class ChineseSourceConfig(BaseModel):
+    """单个中文源配置."""
+
+    name: str = ""
+    url: str = ""
+    method: str = "rss"  # rss or scrape
+
+    @field_validator("method")
+    @classmethod
+    def validate_method(cls, v: str) -> str:
+        if v not in ("rss", "scrape"):
+            msg = f"method 必须是 rss 或 scrape: {v}"
+            raise ValueError(msg)
+        return v
+
+
+class ChineseConfig(BaseModel):
+    """中文数据源配置."""
+
+    enabled: bool = True
+    sources: list[ChineseSourceConfig] = []
+    fetch_interval_minutes: int = 60
+
+
 class SourcesConfig(BaseModel):
     """数据源配置集合."""
 
@@ -69,11 +123,10 @@ class SourcesConfig(BaseModel):
     arxiv: SourceConfig = SourceConfig(
         enabled=True, keywords=["cs.AI", "cs.LG", "cs.CL"]
     )
-    reddit: SourceConfig = SourceConfig(
-        enabled=True, keywords=["MachineLearning", "artificial"]
-    )
-    github: SourceConfig = SourceConfig(enabled=True)
-    huggingface: SourceConfig = SourceConfig(enabled=True)
+    reddit: RedditConfig = RedditConfig()
+    hf_papers: HFPapersConfig = HFPapersConfig()
+    github: GitHubConfig = GitHubConfig()
+    chinese: ChineseConfig = ChineseConfig()
     rss: SourceConfig = SourceConfig(
         enabled=True,
         keywords=["OpenAI Blog", "DeepMind", "Anthropic", "Meta AI", "HuggingFace Blog"],
@@ -128,6 +181,12 @@ class AppConfig(BaseModel):
         data["llm"]["api_key"] = _mask(data["llm"]["api_key"])
         data["obsidian"]["api_key"] = _mask(data["obsidian"]["api_key"])
         data["dingtalk"]["secret"] = _mask(data["dingtalk"]["secret"])
+        data["sources"]["reddit"]["client_secret"] = _mask(
+            data["sources"]["reddit"]["client_secret"]
+        )
+        data["sources"]["github"]["token"] = _mask(
+            data["sources"]["github"]["token"]
+        )
         return AppConfig(**data)
 
 
