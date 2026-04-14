@@ -120,6 +120,7 @@ class TestArticleFrontmatter:
         assert fm["category"] == "industry"
         assert fm["relevance"] == 9.0
         assert fm["is_trending"] is True
+        assert "is_read" not in fm  # is_read is computed via formula, not frontmatter
         assert "tags" in fm
         assert "entities" in fm
 
@@ -225,9 +226,10 @@ class TestDailyHeader:
         base_yaml = result[start:end].strip()
         parsed = yaml.safe_load(base_yaml)
         assert "filters" in parsed
-        assert "properties" in parsed
         assert "views" in parsed
-        assert parsed["filters"]["date"] == "2026-04-13"
+        assert isinstance(parsed["views"], list)
+        # 确认日期过滤器包含目标日期
+        assert "2026-04-13" in base_yaml
 
     def test_daily_header_default_date(self) -> None:
         result = render_daily_header()
@@ -308,8 +310,20 @@ class TestDashboardBasesYaml:
             parsed = yaml.safe_load(content)
             assert isinstance(parsed, dict), f"{name}: YAML 解析结果不是 dict"
             assert "filters" in parsed, f"{name}: 缺少 filters"
-            assert "properties" in parsed, f"{name}: 缺少 properties"
             assert "views" in parsed, f"{name}: 缺少 views"
+            assert isinstance(parsed["views"], list), f"{name}: views 必须是数组"
+
+    def test_all_dashboards_views_have_type_and_name(
+        self, dashboard_renderers: dict
+    ) -> None:
+        """验证每个 view 有 type 和 name."""
+        for name, renderer in dashboard_renderers.items():
+            content = renderer()
+            parsed = yaml.safe_load(content)
+            for v in parsed["views"]:
+                assert "type" in v, f"{name}: view 缺少 type"
+                assert "name" in v, f"{name}: view 缺少 name"
+                assert "order" in v, f"{name}: view 缺少 order"
 
     def test_all_dashboards_no_dataview(self, dashboard_renderers: dict) -> None:
         """验证返回的字符串中不含 dataview/dataviewjs."""
@@ -320,39 +334,60 @@ class TestDashboardBasesYaml:
 
     def test_home_dashboard_views(self) -> None:
         parsed = yaml.safe_load(render_dashboard_home())
-        views = parsed["views"]
-        assert "today" in views
-        assert "trending" in views
-        assert "weekly" in views
+        view_names = [v["name"] for v in parsed["views"]]
+        assert "Today" in view_names
+        assert "Trending" in view_names
+        assert "7-Day Trend" in view_names
 
     def test_trending_dashboard_views(self) -> None:
         parsed = yaml.safe_load(render_dashboard_trending())
-        views = parsed["views"]
-        assert "hot_48h" in views
-        assert "cross_platform" in views
+        view_names = [v["name"] for v in parsed["views"]]
+        assert "48h Hot" in view_names
+        assert "Cross-Platform" in view_names
 
     def test_reading_list_dashboard_views(self) -> None:
         parsed = yaml.safe_load(render_dashboard_reading_list())
-        views = parsed["views"]
-        assert "unread" in views
-        assert "by_category" in views
+        view_names = [v["name"] for v in parsed["views"]]
+        assert "Unread" in view_names
+        assert "By Category" in view_names
 
     def test_people_tracker_dashboard_views(self) -> None:
         parsed = yaml.safe_load(render_dashboard_people_tracker())
-        views = parsed["views"]
-        assert "people" in views
-        assert "companies" in views
-        assert "projects" in views
+        view_names = [v["name"] for v in parsed["views"]]
+        assert "People" in view_names
+        assert "Companies" in view_names
+        assert "Projects" in view_names
 
     def test_articles_dashboard_has_summaries(self) -> None:
         parsed = yaml.safe_load(render_dashboard_articles())
-        assert "summaries" in parsed
-        assert "avg_trend_score" in parsed["summaries"]
+        # summaries 在 view 内
+        all_view = next(v for v in parsed["views"] if v["name"] == "All Articles")
+        assert "summaries" in all_view
+        assert "trend_score" in all_view["summaries"]
 
     def test_all_dashboards_non_empty(self, dashboard_renderers: dict) -> None:
         for name, renderer in dashboard_renderers.items():
             content = renderer()
             assert len(content) > 50, f"{name}: 内容过短"
+
+    def test_dashboards_use_file_infolder(self, dashboard_renderers: dict) -> None:
+        """验证 filters 使用 file.inFolder() 语法."""
+        for name, renderer in dashboard_renderers.items():
+            content = renderer()
+            assert 'file.inFolder(' in content, f"{name}: 未使用 file.inFolder"
+
+    def test_dashboards_with_is_read_use_formula(self) -> None:
+        """验证使用 is_read 的仪表盘通过 formula 计算."""
+        for renderer in [
+            render_dashboard_home,
+            render_dashboard_reading_list,
+            render_dashboard_articles,
+        ]:
+            content = renderer()
+            parsed = yaml.safe_load(content)
+            assert "formulas" in parsed, "缺少 formulas 段"
+            assert "is_read" in parsed["formulas"], "缺少 is_read formula"
+            assert 'status == "read"' in parsed["formulas"]["is_read"]
 
 
 class TestDashboardsOutput:

@@ -176,23 +176,20 @@ OpenAI 于今日正式发布 GPT-6 模型，最显著的突破是实现了
 
 ```base
 filters:
-  folder: AI-News
-  date: "2026-04-13"
+  and:
+    - file.inFolder("AI-News")
+    - 'date == date("2026-04-13")'
 properties:
-  relevance:
-    type: number
-  source_name:
-    type: text
-  category:
-    type: select
   status:
-    type: select
-    options: [unread, reading, read]
+    displayName: Status
+  source_name:
+    displayName: Source
+  category:
+    displayName: Category
 views:
-  default:
+  - type: table
     name: Overview
-    sort: trend_score DESC
-    columns:
+    order:
       - file.name
       - relevance
       - source_name
@@ -221,137 +218,206 @@ views:
 
 ```yaml
 filters:
-  folder: AI-News
+  and:
+    - file.inFolder("AI-News")
 properties:
-  date: {type: date}
-  relevance: {type: number}
-  trend_score: {type: number}
-  is_trending: {type: checkbox}
-  status: {type: select, options: [unread, reading, read]}
-  category: {type: select}
-  source_name: {type: text}
+  status:
+    displayName: Status
+  source_name:
+    displayName: Source
+  category:
+    displayName: Category
 views:
-  today:
+  - type: table
     name: Today
-    filter: "date == today()"
-    sort: trend_score DESC
-    columns: [file.name, relevance, source_name, category, status]
-  trending:
+    filters:
+      and:
+        - 'date == today()'
+    order:
+      - file.name
+      - relevance
+      - source_name
+      - category
+      - status
+  - type: table
     name: Trending
-    filter: "is_trending AND date >= today() - dur(1 day)"
-    sort: trend_score DESC
-    columns: [file.name, relevance, source_name, category]
-  weekly:
+    filters:
+      and:
+        - is_trending
+        - 'date >= today() - "1 day"'
+    order:
+      - file.name
+      - relevance
+      - source_name
+      - category
+  - type: table
     name: 7-Day Trend
-    filter: "date >= today() - dur(7 days)"
-    sort: "date DESC, trend_score DESC"
-    columns: [file.name, date, relevance, source_name, category, is_trending]
+    filters:
+      and:
+        - 'date >= today() - "7 days"'
+    order:
+      - file.name
+      - date
+      - relevance
+      - source_name
+      - category
+      - is_trending
 ```
 
 ### Trending.base - 热点追踪
 
 ```yaml
 filters:
-  folder: AI-News
+  and:
+    - file.inFolder("AI-News")
 properties:
-  date: {type: date}
-  relevance: {type: number}
-  trend_score: {type: number}
-  is_trending: {type: checkbox}
-  category: {type: select}
-  platforms: {type: list}
+  category:
+    displayName: Category
 views:
-  hot_48h:
+  - type: table
     name: 48h Hot
-    filter: "is_trending AND date >= today() - dur(2 days)"
-    sort: trend_score DESC
-    columns: [file.name, relevance, category, date]
-  cross_platform:
+    filters:
+      and:
+        - is_trending
+        - 'date >= today() - "2 days"'
+    order:
+      - file.name
+      - relevance
+      - category
+      - date
+  - type: table
     name: Cross-Platform
-    filter: "length(platforms) >= 3 AND date >= today() - dur(7 days)"
-    sort: "length(platforms) DESC, trend_score DESC"
-    columns: [file.name, platforms, trend_score, category, date]
+    filters:
+      and:
+        - 'length(platforms) >= 3'
+        - 'date >= today() - "7 days"'
+    order:
+      - file.name
+      - platforms
+      - trend_score
+      - category
+      - date
 ```
 
 ### Reading-List.base - 阅读列表
 
 ```yaml
 filters:
-  folder: AI-News
+  and:
+    - file.inFolder("AI-News")
 properties:
-  date: {type: date}
-  relevance: {type: number}
-  status: {type: select, options: [unread, reading, read]}
-  category: {type: select}
+  status:
+    displayName: Status
+  category:
+    displayName: Category
 views:
-  unread:
+  - type: table
     name: Unread
-    filter: "status == \"unread\""
-    sort: relevance DESC
-    columns: [file.name, relevance, category, date, status]
-  by_category:
+    filters:
+      and:
+        - 'status == "unread"'
+    order:
+      - file.name
+      - relevance
+      - category
+      - date
+      - status
+  - type: table
     name: By Category
-    sort: "category ASC, relevance DESC"
-    columns: [file.name, category, relevance, date, status]
-    group_by: category
+    groupBy:
+      property: category
+      direction: ASC
+    order:
+      - file.name
+      - category
+      - relevance
+      - date
+      - status
 ```
 
 ### People-Tracker.base - 实体追踪
 
 ```yaml
 filters:
-  folder: AI-News/Entities
+  and:
+    - file.inFolder("AI-News/Entities")
 properties:
-  type: {type: select, options: [person, company, project, technology]}
-  mention_count: {type: number}
-  first_seen: {type: date}
-  last_seen: {type: date}
+  type:
+    displayName: Type
+  mention_count:
+    displayName: Mentions
+  last_seen:
+    displayName: Last Seen
 views:
-  people:
+  - type: table
     name: People
-    filter: "type == \"person\""
-    sort: mention_count DESC
-    columns: [file.name, mention_count, last_seen]
-  companies:
+    filters:
+      and:
+        - 'type == "person"'
+    order:
+      - file.name
+      - mention_count
+      - last_seen
+  - type: table
     name: Companies
-    filter: "type == \"company\""
-    sort: mention_count DESC
-    columns: [file.name, mention_count, last_seen]
-  projects:
+    filters:
+      and:
+        - 'type == "company"'
+    order:
+      - file.name
+      - mention_count
+      - last_seen
+  - type: table
     name: Projects
-    filter: "type == \"project\""
-    sort: mention_count DESC
-    columns: [file.name, mention_count, last_seen]
+    filters:
+      and:
+        - 'type == "project"'
+    order:
+      - file.name
+      - mention_count
+      - last_seen
 ```
 
 ### Articles.base - 全量文章数据库
 
 ```yaml
 filters:
-  folder: AI-News
+  and:
+    - file.inFolder("AI-News")
 properties:
-  date: {type: date}
-  relevance: {type: number}
-  trend_score: {type: number}
-  is_trending: {type: checkbox}
-  status: {type: select, options: [unread, reading, read]}
-  category: {type: select}
-  source_name: {type: text}
-  platforms: {type: list}
-summaries:
-  total: {type: count}
-  avg_relevance: {type: average, property: relevance}
-  avg_trend_score: {type: average, property: trend_score}
+  status:
+    displayName: Status
+  source_name:
+    displayName: Source
+  category:
+    displayName: Category
 views:
-  all:
+  - type: table
     name: All Articles
-    sort: "date DESC, trend_score DESC"
-    columns: [file.name, date, relevance, trend_score, category, source_name, status, is_trending]
-  by_source:
+    order:
+      - file.name
+      - date
+      - relevance
+      - trend_score
+      - category
+      - source_name
+      - status
+      - is_trending
+    summaries:
+      trend_score: Average
+      relevance: Average
+  - type: table
     name: By Source
-    sort: "source_name ASC, date DESC"
-    columns: [source_name, file.name, date, relevance, category, status]
-    group_by: source_name
+    groupBy:
+      property: source_name
+      direction: ASC
+    order:
+      - source_name
+      - file.name
+      - date
+      - relevance
+      - category
+      - status
 ```
 
 ## 交互式编辑

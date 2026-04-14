@@ -148,43 +148,36 @@ def render_daily_header(date: str | None = None) -> str:
     if date is None:
         date = datetime.now().strftime("%Y-%m-%d")
 
-    base_query = yaml.dump(
-        {
-            "filters": {
-                "folder": "AI-News",
-                "date": date,
-            },
-            "properties": {
-                "relevance": {"type": "number"},
-                "trend_score": {"type": "number"},
-                "source_name": {"type": "text"},
-                "category": {"type": "select"},
-                "status": {"type": "select", "options": ["unread", "reading", "read"]},
-            },
-            "views": {
-                "default": {
-                    "name": "Overview",
-                    "sort": "trend_score DESC",
-                    "columns": [
-                        "file.name",
-                        "relevance",
-                        "source_name",
-                        "category",
-                        "status",
-                    ],
-                },
-            },
-        },
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
+    base_yaml = (
+        "filters:\n"
+        "  and:\n"
+        "    - file.inFolder(\"AI-News\")\n"
+        f"    - 'date == date(\"{date}\")'\n"
+        "formulas:\n"
+        "  is_read: 'status == \"read\"'\n"
+        "properties:\n"
+        "  formula.is_read:\n"
+        "    displayName: Read\n"
+        "  source_name:\n"
+        "    displayName: Source\n"
+        "  category:\n"
+        "    displayName: Category\n"
+        "views:\n"
+        "  - type: table\n"
+        "    name: Overview\n"
+        "    order:\n"
+        "      - file.name\n"
+        "      - relevance\n"
+        "      - source_name\n"
+        "      - category\n"
+        "      - formula.is_read\n"
     )
 
     parts: list[str] = [
         f"# AI News - {date}\n",
         "## 概览\n",
         "```base",
-        base_query.strip(),
+        base_yaml,
         "```\n",
     ]
     return "\n".join(parts)
@@ -262,278 +255,219 @@ def render_entity_page(
 
 def render_dashboard_home() -> str:
     """Home 仪表盘: 今日概览 / 今日热点 / 最近 7 天趋势."""
-    return yaml.dump(
-        {
-            "filters": {
-                "folder": "AI-News",
-            },
-            "properties": {
-                "date": {"type": "date"},
-                "relevance": {"type": "number"},
-                "trend_score": {"type": "number"},
-                "is_trending": {"type": "checkbox"},
-                "status": {"type": "select", "options": ["unread", "reading", "read"]},
-                "category": {"type": "select"},
-                "source_name": {"type": "text"},
-            },
-            "views": {
-                "today": {
-                    "name": "Today",
-                    "filter": "date == today()",
-                    "sort": "trend_score DESC",
-                    "columns": [
-                        "file.name",
-                        "relevance",
-                        "source_name",
-                        "category",
-                        "status",
-                    ],
-                },
-                "trending": {
-                    "name": "Trending",
-                    "filter": "is_trending AND date >= today() - dur(1 day)",
-                    "sort": "trend_score DESC",
-                    "columns": [
-                        "file.name",
-                        "relevance",
-                        "source_name",
-                        "category",
-                    ],
-                },
-                "weekly": {
-                    "name": "7-Day Trend",
-                    "filter": "date >= today() - dur(7 days)",
-                    "sort": "date DESC, trend_score DESC",
-                    "columns": [
-                        "file.name",
-                        "date",
-                        "relevance",
-                        "source_name",
-                        "category",
-                        "is_trending",
-                    ],
-                },
-            },
-        },
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
+    return """\
+filters:
+  and:
+    - file.inFolder("AI-News")
+formulas:
+  is_read: 'status == "read"'
+properties:
+  formula.is_read:
+    displayName: Read
+  source_name:
+    displayName: Source
+  category:
+    displayName: Category
+views:
+  - type: table
+    name: Today
+    filters:
+      and:
+        - 'date == today()'
+    order:
+      - file.name
+      - relevance
+      - source_name
+      - category
+      - formula.is_read
+  - type: table
+    name: Trending
+    filters:
+      and:
+        - is_trending
+        - 'date >= today() - "1 day"'
+    order:
+      - file.name
+      - relevance
+      - source_name
+      - category
+  - type: table
+    name: 7-Day Trend
+    filters:
+      and:
+        - 'date >= today() - "7 days"'
+    order:
+      - file.name
+      - date
+      - relevance
+      - source_name
+      - category
+      - is_trending
+"""
 
 
 def render_dashboard_trending() -> str:
     """Trending 仪表盘: 48h 热点 + 跨平台热点."""
-    return yaml.dump(
-        {
-            "filters": {
-                "folder": "AI-News",
-            },
-            "properties": {
-                "date": {"type": "date"},
-                "relevance": {"type": "number"},
-                "trend_score": {"type": "number"},
-                "is_trending": {"type": "checkbox"},
-                "category": {"type": "select"},
-                "platforms": {"type": "list"},
-            },
-            "views": {
-                "hot_48h": {
-                    "name": "48h Hot",
-                    "filter": "is_trending AND date >= today() - dur(2 days)",
-                    "sort": "trend_score DESC",
-                    "columns": [
-                        "file.name",
-                        "relevance",
-                        "category",
-                        "date",
-                    ],
-                },
-                "cross_platform": {
-                    "name": "Cross-Platform",
-                    "filter": "length(platforms) >= 3 AND date >= today() - dur(7 days)",
-                    "sort": "length(platforms) DESC, trend_score DESC",
-                    "columns": [
-                        "file.name",
-                        "platforms",
-                        "trend_score",
-                        "category",
-                        "date",
-                    ],
-                },
-            },
-        },
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
+    return """\
+filters:
+  and:
+    - file.inFolder("AI-News")
+properties:
+  category:
+    displayName: Category
+views:
+  - type: table
+    name: 48h Hot
+    filters:
+      and:
+        - is_trending
+        - 'date >= today() - "2 days"'
+    order:
+      - file.name
+      - relevance
+      - category
+      - date
+  - type: table
+    name: Cross-Platform
+    filters:
+      and:
+        - 'length(platforms) >= 3'
+        - 'date >= today() - "7 days"'
+    order:
+      - file.name
+      - platforms
+      - trend_score
+      - category
+      - date
+"""
 
 
 def render_dashboard_reading_list() -> str:
     """Reading-List 仪表盘: 未读列表 + 按分类浏览."""
-    return yaml.dump(
-        {
-            "filters": {
-                "folder": "AI-News",
-            },
-            "properties": {
-                "date": {"type": "date"},
-                "relevance": {"type": "number"},
-                "trend_score": {"type": "number"},
-                "is_trending": {"type": "checkbox"},
-                "status": {"type": "select", "options": ["unread", "reading", "read"]},
-                "category": {"type": "select"},
-                "source_name": {"type": "text"},
-            },
-            "views": {
-                "unread": {
-                    "name": "Unread",
-                    "filter": "status == \"unread\"",
-                    "sort": "relevance DESC",
-                    "columns": [
-                        "file.name",
-                        "relevance",
-                        "category",
-                        "date",
-                        "status",
-                    ],
-                },
-                "by_category": {
-                    "name": "By Category",
-                    "sort": "category ASC, relevance DESC",
-                    "columns": [
-                        "file.name",
-                        "category",
-                        "relevance",
-                        "date",
-                        "status",
-                    ],
-                    "group_by": "category",
-                },
-            },
-        },
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
+    return """\
+filters:
+  and:
+    - file.inFolder("AI-News")
+formulas:
+  is_read: 'status == "read"'
+properties:
+  formula.is_read:
+    displayName: Read
+  category:
+    displayName: Category
+views:
+  - type: table
+    name: Unread
+    filters:
+      and:
+        - 'status != "read"'
+    order:
+      - file.name
+      - relevance
+      - category
+      - date
+      - formula.is_read
+  - type: table
+    name: By Category
+    groupBy:
+      property: category
+      direction: ASC
+    order:
+      - file.name
+      - category
+      - relevance
+      - date
+      - formula.is_read
+"""
 
 
 def render_dashboard_people_tracker() -> str:
     """People-Tracker 仪表盘: People / Companies / Projects."""
-    return yaml.dump(
-        {
-            "filters": {
-                "folder": "AI-News/Entities",
-            },
-            "properties": {
-                "type": {
-                    "type": "select",
-                    "options": ["person", "company", "project", "technology"],
-                },
-                "mention_count": {"type": "number"},
-                "first_seen": {"type": "date"},
-                "last_seen": {"type": "date"},
-            },
-            "views": {
-                "people": {
-                    "name": "People",
-                    "filter": "type == \"person\"",
-                    "sort": "mention_count DESC",
-                    "columns": [
-                        "file.name",
-                        "mention_count",
-                        "last_seen",
-                    ],
-                },
-                "companies": {
-                    "name": "Companies",
-                    "filter": "type == \"company\"",
-                    "sort": "mention_count DESC",
-                    "columns": [
-                        "file.name",
-                        "mention_count",
-                        "last_seen",
-                    ],
-                },
-                "projects": {
-                    "name": "Projects",
-                    "filter": "type == \"project\"",
-                    "sort": "mention_count DESC",
-                    "columns": [
-                        "file.name",
-                        "mention_count",
-                        "last_seen",
-                    ],
-                },
-            },
-        },
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
+    return """\
+filters:
+  and:
+    - file.inFolder("AI-News/Entities")
+properties:
+  type:
+    displayName: Type
+  mention_count:
+    displayName: Mentions
+  last_seen:
+    displayName: Last Seen
+views:
+  - type: table
+    name: People
+    filters:
+      and:
+        - 'type == "person"'
+    order:
+      - file.name
+      - mention_count
+      - last_seen
+  - type: table
+    name: Companies
+    filters:
+      and:
+        - 'type == "company"'
+    order:
+      - file.name
+      - mention_count
+      - last_seen
+  - type: table
+    name: Projects
+    filters:
+      and:
+        - 'type == "project"'
+    order:
+      - file.name
+      - mention_count
+      - last_seen
+"""
 
 
 def render_dashboard_articles() -> str:
     """Articles 仪表盘: 全量文章数据库视图，含 trend_score Average 汇总."""
-    return yaml.dump(
-        {
-            "filters": {
-                "folder": "AI-News",
-            },
-            "properties": {
-                "date": {"type": "date"},
-                "relevance": {"type": "number"},
-                "trend_score": {"type": "number"},
-                "is_trending": {"type": "checkbox"},
-                "status": {"type": "select", "options": ["unread", "reading", "read"]},
-                "category": {"type": "select"},
-                "source_name": {"type": "text"},
-                "platforms": {"type": "list"},
-            },
-            "summaries": {
-                "total": {"type": "count"},
-                "avg_relevance": {
-                    "type": "average",
-                    "property": "relevance",
-                },
-                "avg_trend_score": {
-                    "type": "average",
-                    "property": "trend_score",
-                },
-            },
-            "views": {
-                "all": {
-                    "name": "All Articles",
-                    "sort": "date DESC, trend_score DESC",
-                    "columns": [
-                        "file.name",
-                        "date",
-                        "relevance",
-                        "trend_score",
-                        "category",
-                        "source_name",
-                        "status",
-                        "is_trending",
-                    ],
-                },
-                "by_source": {
-                    "name": "By Source",
-                    "sort": "source_name ASC, date DESC",
-                    "columns": [
-                        "source_name",
-                        "file.name",
-                        "date",
-                        "relevance",
-                        "category",
-                        "status",
-                    ],
-                    "group_by": "source_name",
-                },
-            },
-        },
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
+    return """\
+filters:
+  and:
+    - file.inFolder("AI-News")
+formulas:
+  is_read: 'status == "read"'
+properties:
+  formula.is_read:
+    displayName: Read
+  source_name:
+    displayName: Source
+  category:
+    displayName: Category
+views:
+  - type: table
+    name: All Articles
+    order:
+      - file.name
+      - date
+      - relevance
+      - trend_score
+      - category
+      - source_name
+      - formula.is_read
+      - is_trending
+    summaries:
+      trend_score: Average
+      relevance: Average
+  - type: table
+    name: By Source
+    groupBy:
+      property: source_name
+      direction: ASC
+    order:
+      - source_name
+      - file.name
+      - date
+      - relevance
+      - category
+      - formula.is_read
+"""
 
 
 def normalize_entity_name(name: str) -> str:
