@@ -217,43 +217,67 @@ language: python, typescript, rust
 
 ---
 
-## P3: X/Twitter (后续扩展)
+## P3: X/Twitter (已实现)
 
-### 免费替代方案
+基于 [SocialData.tools](https://socialdata.tools) API 实现，支持两种采集模式。
 
-| 方案 | 成本 | 可靠性 | 说明 |
-|------|------|-------|------|
-| **TwitterAPI.io** | 100K 免费注册额度 | 高 | 发现：拉取用户时间线 ID |
-| **cdn.syndication.twimg.com** | 免费 | 高 | 富化：已知 ID 获取完整 JSON |
-| **Apify 免费额度** | $5/月免费 | 中 | 预构建 Twitter Scraper Actor |
-| **Inoreader 免费版** | 免费 | 中 | RSS 方式监控 X 账户 |
+### API 概述
 
-### 推荐策略
+| 项目 | 说明 |
+|------|------|
+| 提供商 | SocialData.tools |
+| 定价 | $0.0002/请求（约 $0.20/1K tweets） |
+| 免费额度 | 每分钟前 3 次请求免费 |
+| 速率限制 | 120 请求/分钟 |
+| 认证 | Bearer Token |
+| 月费估算 | ~$0.15（加上免费额度几乎为零） |
 
-1. 用 TwitterAPI.io (免费额度) 拉取关注列表时间线，获取 tweet ID
-2. 用 `cdn.syndication.twimg.com/tweet-result?id={ID}&token=random` 获取完整 JSON（免费、无需认证、无已知速率限制）
-3. 额度用完后可切到 Apify ($5/月免费额度)
+### 核心端点
 
-### 建议关注的 AI 人物
+| 端点 | 用途 | 说明 |
+|------|------|------|
+| `GET /twitter/user/{user_id}/tweets` | 账户监控 | 拉取用户最新推文，每页约 20 条 |
+| `GET /twitter/search?query=...&type=Top` | 热门搜索 | 按关键词搜索，`type=Top` 按互动量排序 |
+| `GET /twitter/user/{screen_name}` | 用户解析 | screen_name → user_id 解析 |
 
-**研究者:**
-- @karpathy - Andrej Karpathy
-- @ylecun - Yann LeCun
-- @AndrewYNg - Andrew Ng
-- @rasbt - Sebastian Raschka
-- @ilyasut - Ilya Sutskever
+### 两种采集模式
 
-**创始人/CEO:**
-- @sama - Sam Altman (OpenAI)
-- @demishassabis - Demis Hassabis (DeepMind)
-- @ClementDelangue - Clément Delangue (Hugging Face)
-- @arthur_mensch - Arthur Mensch (Mistral AI)
+**模式 A — 账户监控：**
+- 定时拉取配置中 `accounts` 列表的 AI KOL 最新推文
+- 自动将 screen_name 解析为 user_id 并缓存
+- 本地过滤回复、转推、短文本（< 20 字符）、低互动量推文
 
-**评论/新闻:**
-- @GaryMarcus - Gary Marcus (AI 批评家)
-- @emollick - Ethan Mollick (实用 AI)
-- @CadeMetz - Cade Metz (NYT AI 记者)
-- @mattturck - Matt Turck (AI 产业地图)
+**模式 B — 热门搜索：**
+- 按 `search_queries` 关键词搜索高互动量推文
+- 默认模板：`(AI OR LLM OR GPT OR "machine learning" OR "deep learning") min_faves:100 -is:retweet lang:en`
+- 支持完整 Twitter 高级搜索语法（`min_faves`、`lang`、`since_id` 等）
 
-**官方:**
-- @OpenAI, @DeepMind, @AnthropicAI, @huggingface, @dair_ai
+### 配置示例
+
+```yaml
+sources:
+  twitter:
+    enabled: true
+    api_key: 'your-socialdata-api-key'
+    accounts:
+      - karpathy
+      - ylecun
+      - sama
+    search_queries: []  # 空则使用默认模板
+    min_engagement: 100
+    fetch_interval_minutes: 30
+```
+
+### 水印策略
+
+使用最新 tweet 的 `id_str`（snowflake ID）作为水印。增量采集时搜索模式自动追加 `since_id:{last_id}` 过滤。
+
+### 默认监控的 AI 人物
+
+**研究者:** @karpathy, @ylecun, @AndrewYNg, @rasbt, @ilyasut
+
+**创始人/CEO:** @sama, @demishassabis, @ClementDelangue, @arthur_mensch
+
+**评论/新闻:** @GaryMarcus, @emollick, @CadeMetz, @mattturck
+
+**官方:** @OpenAI, @DeepMind, @AnthropicAI, @huggingface

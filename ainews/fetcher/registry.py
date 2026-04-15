@@ -56,6 +56,7 @@ def _ensure_registered() -> None:
     from ainews.fetcher.hf_papers import HFPapersFetcher
     from ainews.fetcher.github import GitHubFetcher
     from ainews.fetcher.chinese import ChineseFetcher
+    from ainews.fetcher.twitter import TwitterFetcher
 
     register("hackernews", HackerNewsFetcher)
     register("arxiv", ArXivFetcher)
@@ -64,3 +65,4 @@ def _ensure_registered() -> None:
     register("hf_papers", HFPapersFetcher)
     register("github", GitHubFetcher)
     register("chinese", ChineseFetcher)
+    register("twitter", TwitterFetcher)
