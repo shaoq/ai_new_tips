@@ -180,6 +180,10 @@ def _step_push(options: RunOptions) -> int:
         if not articles:
             return 0
 
-        message = build_feedcard(articles, title="AI News Update")
+        article_dicts = [
+            {"title": a.title, "url": a.url, "source_name": a.source_name, "trend_score": a.trend_score}
+            for a in articles
+        ]
+        message = build_feedcard(article_dicts, title="AI News Update")
         client.send(message)
         return len(articles)
