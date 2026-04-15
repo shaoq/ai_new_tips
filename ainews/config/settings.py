@@ -114,6 +114,22 @@ class ChineseConfig(BaseModel):
     fetch_interval_minutes: int = 60
 
 
+class TwitterConfig(BaseModel):
+    """X/Twitter 数据源配置（基于 SocialData.tools API）."""
+
+    enabled: bool = True
+    api_key: str = ""
+    accounts: list[str] = [
+        "karpathy", "ylecun", "AndrewYNg", "rasbt", "ilyasut",
+        "sama", "demishassabis", "ClementDelangue", "arthur_mensch",
+        "GaryMarcus", "emollick", "CadeMetz", "mattturck",
+        "OpenAI", "DeepMind", "AnthropicAI", "huggingface",
+    ]
+    search_queries: list[str] = []
+    min_engagement: int = 100
+    fetch_interval_minutes: int = 30
+
+
 class SourcesConfig(BaseModel):
     """数据源配置集合."""
 
@@ -131,6 +147,7 @@ class SourcesConfig(BaseModel):
         enabled=True,
         keywords=["OpenAI Blog", "DeepMind", "Anthropic", "Meta AI", "HuggingFace Blog"],
     )
+    twitter: TwitterConfig = TwitterConfig()
 
 
 class LoggingConfig(BaseModel):
@@ -186,6 +203,9 @@ class AppConfig(BaseModel):
         )
         data["sources"]["github"]["token"] = _mask(
             data["sources"]["github"]["token"]
+        )
+        data["sources"]["twitter"]["api_key"] = _mask(
+            data["sources"]["twitter"]["api_key"]
         )
         return AppConfig(**data)
 
