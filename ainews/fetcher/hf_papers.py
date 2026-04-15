@@ -85,6 +85,8 @@ class HFPapersFetcher(BaseFetcher):
                     time.sleep(30)
                     items = self._fetch_by_date(date_str)
                     all_items.extend(items)
+                elif e.response.status_code == 400:
+                    logger.info("[hf_papers] %s 暂无数据（当日论文尚未发布）", date_str)
                 else:
                     logger.error("[hf_papers] %s 请求失败: %s", date_str, e)
             except Exception:

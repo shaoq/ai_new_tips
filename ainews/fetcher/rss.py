@@ -39,7 +39,11 @@ class RSSFetcher(BaseFetcher):
 
     def __init__(self, config: Any = None) -> None:
         super().__init__(source_name="rss", config=config)
-        self._client = httpx.Client(timeout=30.0, follow_redirects=True)
+        self._client = httpx.Client(
+            timeout=30.0,
+            follow_redirects=True,
+            headers={"User-Agent": "ai-news-tips/1.0"},
+        )
         self.feeds: dict[str, str] = dict(DEFAULT_RSS_FEEDS)
         if config and hasattr(config, "rss_feeds"):
             custom_feeds = getattr(config, "rss_feeds", None)
