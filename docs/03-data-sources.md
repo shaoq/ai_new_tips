@@ -55,6 +55,25 @@ AI_KEYWORDS = [
 
 ---
 
+## 采集进度输出
+
+采集过程中（`ainews run` 或 `ainews fetch run`），终端会实时显示每个数据源的采集结果：
+
+```
+  ▸ Fetch...
+    · hackernews: 42 articles (3200ms)
+    · arxiv: 15 articles (5100ms)
+    · reddit: 23 articles (2100ms)
+    ✗ twitter: failed (1500ms)
+       OK     Fetch (12.3s, 80 items)
+```
+
+- 成功的源显示 `· source_name: N articles (Nms)`
+- 失败的源显示 `✗ source_name: failed (Nms)`
+- 进度输出基于 `rich.console.Console`，在 `fetcher/runner.py` 中实现
+
+---
+
 ## P0: ArXiv
 
 ### 接入方式

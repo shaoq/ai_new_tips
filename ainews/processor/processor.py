@@ -10,12 +10,15 @@ from typing import Any
 
 from sqlmodel import Session, select
 
+from rich.console import Console  # NOTE: 进度输出依赖，项目已有 rich 依赖
+
 from ainews.llm.client import LLMClient, LLMClientError, LLMResponseParseError, parse_json_response
 from ainews.llm.prompts import MERGED_PROCESS_PROMPT
 from ainews.processor.entity_handler import EntityHandler
 from ainews.storage.models import Article
 
 logger = logging.getLogger(__name__)
+_console = Console()
 
 # JSON 字段默认值
 _DEFAULT_CATEGORY = ""
@@ -128,6 +131,12 @@ class ArticleProcessor:
             results.append(result)
             session.commit()
 
+            done = i + 1
+            if done % 5 == 0 or done == len(articles):
+                _console.print(
+                    f"    [dim]·[/dim] Processed [cyan]{done}[/cyan]/[dim]{len(articles)}[/dim] articles"
+                )
+
             if i < len(articles) - 1:
                 time.sleep(CALL_INTERVAL)
 
@@ -181,6 +190,12 @@ class ArticleProcessor:
             result = self.process_article(article, session)
             results.append(result)
             session.commit()
+
+            done = i + 1
+            if done % 5 == 0 or done == len(articles):
+                _console.print(
+                    f"    [dim]·[/dim] Processed [cyan]{done}[/cyan]/[dim]{len(articles)}[/dim] articles"
+                )
 
             if i < len(articles) - 1:
                 time.sleep(CALL_INTERVAL)

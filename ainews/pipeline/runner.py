@@ -96,6 +96,7 @@ class PipelineRunner:
                 continue
 
             # 实际执行
+            self.console.print(f"  [dim]▸[/dim] {step.name}...")
             step_start = time.time()
             try:
                 count = step.execute_fn(self.options)

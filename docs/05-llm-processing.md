@@ -236,3 +236,21 @@ text = "\n".join(block["text"] for block in response.json()["content"] if block[
 | 本地模型 (Ollama) | 免费 | 免费 | $0 |
 
 用户可根据 `config.yaml` 中的配置自由选择模型和供应商。
+
+## 处理进度输出
+
+批量处理文章时（`ainews run` 或 `ainews process`），终端会每处理完 5 篇文章打印一行进度：
+
+```
+  ▸ Process...
+    · Processed 5/50 articles
+    · Processed 10/50 articles
+    · Processed 15/50 articles
+    ...
+    · Processed 50/50 articles
+       OK     Process (75.3s, 50 items)
+```
+
+- 进度基于 `rich.console.Console`，在 `processor/processor.py` 的 `process_unprocessed()` 和 `process_all_force()` 中实现
+- 少于 5 篇时仅在全部完成时打印一行（如 `Processed 3/3 articles`）
+- 0 篇时不打印进度行
