@@ -40,6 +40,26 @@ ainews/
 └── utils/        # 工具函数 (url/text/crypto)
 ```
 
+## CRITICAL: Workflow Rules
+
+### 1. 必须使用 OpenSpec 流程，禁止直接编码
+
+**所有新功能、Bug 修复、重构等变更必须通过 OpenSpec 流程进行，禁止跳过流程直接编码。**
+
+正确流程：
+```
+/opsx:explore <topic>   → 分析需求、探索方案
+/opsx:propose <name>    → 创建正式提案（proposal/design/specs/tasks）
+/new-worktree-apply <name>  → 创建 worktree 并实施
+/merge-worktree-return <name> → 合并回主分支
+/opsx:archive <name>    → 归档完成的变更
+```
+
+**禁止行为**：
+- 分析完需求后直接写代码
+- 跳过 explore 或 propose 阶段
+- 不经过 OpenSpec 就创建文件或修改逻辑
+
 ## OpenSpec Workflow
 
 项目使用 OpenSpec 进行变更管理。当前活跃变更（按实施顺序）：
@@ -75,7 +95,7 @@ ainews push          # 推送钉钉
 
 ## CRITICAL: Docs Sync Rule
 
-**所有对代码的更新时，务必同步更新 `docs/` 下对应的分析文档。** 代码变更必须反映到文档中，保持文档与代码一致。
+**任何代码变更都必须同步更新 `docs/` 下的对应分析文档，保持文档与代码一致。** 不允许只改代码不改文档。
 
 文档映射关系：
 | 模块 | 对应文档 |
