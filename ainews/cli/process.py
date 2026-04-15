@@ -40,18 +40,28 @@ def process_callback(
     force: bool = typer.Option(
         False, "--force", "-f", help="强制重新处理"
     ),
+    backfill_title_zh: bool = typer.Option(
+        False, "--backfill-title-zh", help="回填已处理但 title_zh 为空的文章"
+    ),
+    limit: int = typer.Option(
+        0, "--limit", help="限制处理数量（默认50，0=不限制）"
+    ),
 ) -> None:
     """处理文章：分类、摘要、评分、实体提取、标签生成.
 
     无参数: 处理所有未处理的文章
     --article <id>: 处理指定 ID 的文章
     --all --force: 强制重新处理所有文章
+    --backfill-title-zh: 回填已处理文章的中文标题
     """
     processor, session = _create_processor()
+    batch_limit = limit if limit > 0 else None
 
     try:
         if article is not None:
             _process_single(processor, session, article)
+        elif backfill_title_zh:
+            _backfill_title_zh(processor, session, batch_limit)
         elif all_articles and force:
             _process_all_force(processor, session)
         else:
@@ -101,6 +111,14 @@ def _process_all_force(
     """强制处理所有文章并输出统计."""
     results = processor.process_all_force(session)
     _print_batch_summary(results, "强制全量处理")
+
+
+def _backfill_title_zh(
+    processor: ArticleProcessor, session: "Session", limit: int | None
+) -> None:
+    """回填已处理文章的中文标题."""
+    results = processor.backfill_title_zh(session, limit=limit)
+    _print_batch_summary(results, "title_zh 回填")
 
 
 def _print_batch_summary(results: list[ProcessResult], mode: str) -> None:

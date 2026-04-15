@@ -25,7 +25,7 @@ def build_feedcard(
     links: list[dict[str, str]] = []
     for article in articles:
         link: dict[str, str] = {
-            "title": article.get("title", "无标题"),
+            "title": article.get("title_zh", "") or article.get("title", "无标题"),
             "messageURL": article.get("url", ""),
         }
         pic_url = article.get("pic_url", "")
@@ -54,7 +54,7 @@ def build_actioncard(article: dict[str, Any]) -> dict[str, Any]:
     Returns:
         完整的钉钉 actionCard 消息体
     """
-    title = article.get("title", "无标题")
+    title = article.get("title_zh", "") or article.get("title", "无标题")
     summary = article.get("summary_zh", "")
     url = article.get("url", "")
     obsidian_url = article.get("obsidian_url", "")
@@ -131,7 +131,7 @@ def build_markdown_weekly(
         lines.append("### 热点 TOP 5")
         lines.append("")
         for i, article in enumerate(top_articles, 1):
-            title = article.get("title", "无标题")
+            title = article.get("title_zh", "") or article.get("title", "无标题")
             url = article.get("url", "")
             score = article.get("trend_score", 0.0)
             lines.append(f"{i}. [{title}]({url}) (热度: {score:.1f})")
@@ -174,7 +174,7 @@ def build_markdown_noon(articles: list[dict[str, Any]]) -> dict[str, Any]:
         lines.append("暂无新增热点。")
     else:
         for article in articles:
-            title = article.get("title", "无标题")
+            title = article.get("title_zh", "") or article.get("title", "无标题")
             url = article.get("url", "")
             score = article.get("trend_score", 0.0)
             source = article.get("source_name", "")

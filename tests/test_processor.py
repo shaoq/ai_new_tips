@@ -59,6 +59,7 @@ def _make_article(**overrides: object) -> Article:
 VALID_LLM_RESPONSE = json.dumps({
     "category": "industry",
     "category_confidence": 0.95,
+    "title_zh": "测试文章标题",
     "summary_zh": "这是一篇关于AI的测试文章。",
     "relevance": 9,
     "relevance_reason": "直接讨论AI技术进展",
@@ -92,8 +93,10 @@ class TestProcessArticle:
         assert result.category == "industry"
         assert result.relevance == 9
         assert result.tags == ["ai", "gpt", "llm"]
+        assert result.title_zh == "测试文章标题"
         assert article.processed is True
         assert article.category == "industry"
+        assert article.title_zh == "测试文章标题"
         assert article.summary_zh == "这是一篇关于AI的测试文章。"
         assert article.relevance == 9
 
@@ -172,6 +175,8 @@ class TestProcessArticle:
 
         assert result.success is True
         assert result.category == "research"
+        assert result.title_zh == ""
+        assert article.title_zh == ""
 
     def test_process_article_truncates_long_content(
         self, processor: ArticleProcessor, mock_llm_client: MagicMock, session: Session
@@ -351,3 +356,76 @@ class TestProcessAllForce:
 
         assert results == []
         mock_llm_client.call.assert_not_called()
+
+
+class TestBackfillTitleZh:
+    """title_zh 回填测试."""
+
+    @patch("ainews.processor.processor.time.sleep")
+    def test_backfill_processes_only_empty_title_zh(
+        self, mock_sleep: MagicMock, processor: ArticleProcessor,
+        mock_llm_client: MagicMock, session: Session
+    ) -> None:
+        mock_llm_client.call.return_value = VALID_LLM_RESPONSE
+
+        # processed=True, title_zh="" — 应该被回填
+        need_backfill = _make_article(
+            title="Needs Backfill",
+            url="https://example.com/backfill",
+            processed=True,
+            title_zh="",
+        )
+        # processed=True, title_zh 已有值 — 不应被回填
+        already_done = _make_article(
+            title="Already Done",
+            url="https://example.com/done",
+            processed=True,
+            title_zh="已有中文标题",
+        )
+        # processed=False — 不应被回填
+        unprocessed = _make_article(
+            title="Unprocessed",
+            url="https://example.com/unprocessed",
+            processed=False,
+        )
+        for a in [need_backfill, already_done, unprocessed]:
+            session.add(a)
+        session.commit()
+
+        results = processor.backfill_title_zh(session)
+
+        assert len(results) == 1
+        assert results[0].success is True
+        assert results[0].title_zh == "测试文章标题"
+
+    @patch("ainews.processor.processor.time.sleep")
+    def test_backfill_no_articles(
+        self, mock_sleep: MagicMock, processor: ArticleProcessor,
+        mock_llm_client: MagicMock, session: Session
+    ) -> None:
+        results = processor.backfill_title_zh(session)
+        assert results == []
+        mock_llm_client.call.assert_not_called()
+
+    @patch("ainews.processor.processor.time.sleep")
+    def test_backfill_respects_limit(
+        self, mock_sleep: MagicMock, processor: ArticleProcessor,
+        mock_llm_client: MagicMock, session: Session
+    ) -> None:
+        mock_llm_client.call.return_value = VALID_LLM_RESPONSE
+
+        articles = [
+            _make_article(
+                title=f"Article {i}",
+                url=f"https://example.com/bl/{i}",
+                processed=True,
+                title_zh="",
+            )
+            for i in range(5)
+        ]
+        for a in articles:
+            session.add(a)
+        session.commit()
+
+        results = processor.backfill_title_zh(session, limit=3)
+        assert len(results) == 3

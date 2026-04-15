@@ -23,6 +23,7 @@ _console = Console()
 # JSON 字段默认值
 _DEFAULT_CATEGORY = ""
 _DEFAULT_CATEGORY_CONFIDENCE = 0.0
+_DEFAULT_TITLE_ZH = ""
 _DEFAULT_SUMMARY_ZH = ""
 _DEFAULT_RELEVANCE = 0
 _DEFAULT_RELEVANCE_REASON = ""
@@ -48,6 +49,7 @@ class ProcessResult:
     article_id: int
     success: bool
     error: str = ""
+    title_zh: str = ""
     category: str = ""
     summary_zh: str = ""
     relevance: int = 0
@@ -82,6 +84,7 @@ class ArticleProcessor:
             return ProcessResult(
                 article_id=article.id,
                 success=True,
+                title_zh=parsed.get("title_zh", _DEFAULT_TITLE_ZH),
                 category=parsed.get("category", _DEFAULT_CATEGORY),
                 summary_zh=parsed.get("summary_zh", _DEFAULT_SUMMARY_ZH),
                 relevance=parsed.get("relevance", _DEFAULT_RELEVANCE),
@@ -203,6 +206,51 @@ class ArticleProcessor:
         self._log_summary(results, "强制全量处理")
         return results
 
+    def backfill_title_zh(self, session: Session, limit: int | None = None) -> list[ProcessResult]:
+        """回填已处理但 title_zh 为空的文章.
+
+        Args:
+            session: 数据库 session
+            limit: 限制处理数量。None 使用默认上限 50，0 表示不限制
+
+        Returns:
+            所有处理结果列表
+        """
+        batch_limit = DEFAULT_BATCH_LIMIT if limit is None else (limit if limit > 0 else None)
+
+        statement = (
+            select(Article)
+            .where(Article.processed == True)  # noqa: E712
+            .where(Article.title_zh == "")  # noqa: E712
+        )
+        if batch_limit is not None:
+            statement = statement.limit(batch_limit)
+        articles = session.exec(statement).all()
+
+        if not articles:
+            logger.info("没有需要回填 title_zh 的文章")
+            return []
+
+        logger.info("开始回填 %d 篇文章的 title_zh", len(articles))
+        results: list[ProcessResult] = []
+
+        for i, article in enumerate(articles):
+            result = self.process_article(article, session)
+            results.append(result)
+            session.commit()
+
+            done = i + 1
+            if done % 5 == 0 or done == len(articles):
+                _console.print(
+                    f"    [dim]·[/dim] Backfilled [cyan]{done}[/cyan]/[dim]{len(articles)}[/dim] articles"
+                )
+
+            if i < len(articles) - 1:
+                time.sleep(CALL_INTERVAL)
+
+        self._log_summary(results, "title_zh 回填")
+        return results
+
     def _apply_result(
         self, article: Article, parsed: dict[str, Any], session: Session
     ) -> None:
@@ -235,6 +283,7 @@ class ArticleProcessor:
             entities = _DEFAULT_ENTITIES
 
         article.category = category
+        article.title_zh = parsed.get("title_zh", _DEFAULT_TITLE_ZH)
         article.summary_zh = parsed.get("summary_zh", _DEFAULT_SUMMARY_ZH)
         article.relevance = relevance
         article.tags = json.dumps(tags, ensure_ascii=False)

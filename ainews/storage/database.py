@@ -48,6 +48,9 @@ def init_db(config: AppConfig | None = None) -> None:
     import ainews.storage.models  # noqa: F401
     SQLModel.metadata.create_all(engine)
 
+    # 增量迁移：为已有表添加新列
+    _migrate_add_title_zh(engine)
+
 
 @contextmanager
 def get_session(config: AppConfig | None = None):
@@ -63,3 +66,16 @@ def reset_engine() -> None:
     if _engine is not None:
         _engine.dispose()
         _engine = None
+
+
+def _migrate_add_title_zh(engine) -> None:
+    """为 articles 表添加 title_zh 列（幂等）."""
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE articles ADD COLUMN title_zh VARCHAR DEFAULT ''"))
+            conn.commit()
+    except Exception:
+        # 列已存在时 SQLite 会报错，忽略即可
+        logger.debug("title_zh 列已存在，跳过迁移")

@@ -34,6 +34,7 @@ def render_article_frontmatter(article: Any) -> str:
 
     fm: dict[str, Any] = {
         "title": article.title,
+        "title_zh": article.title_zh,
         "date": _fmt_date(article.published_at),
         "source": article.source,
         "source_name": article.source_name,
@@ -77,7 +78,8 @@ def render_article_body(article: Any) -> str:
 
     # 原文链接
     parts.append("## 原文链接\n")
-    parts.append(f"[{article.title}]({article.url})")
+    display_title = article.title_zh or article.title
+    parts.append(f"[{display_title}]({article.url})")
     parts.append("")
 
     # 关联实体（双链）
@@ -123,8 +125,9 @@ def render_daily_section(
         date_prefix = _fmt_date_prefix(article.published_at)
         link_target = f"{date_prefix}{slug}"
 
-        # 截断标题作为显示文本
-        short_title = article.title[:40] + ("..." if len(article.title) > 40 else "")
+        # 截断标题作为显示文本（优先中文标题）
+        display_title = article.title_zh or article.title
+        short_title = display_title[:40] + ("..." if len(display_title) > 40 else "")
 
         # 热点标记
         trending = " 🔥" if article.is_trending else ""

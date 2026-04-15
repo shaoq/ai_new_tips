@@ -179,6 +179,7 @@ text = "\n".join(block["text"] for block in response.json()["content"] if block[
   │                                        │
   │ Prompt: 返回一个完整 JSON               │
   │ {                                      │
+  │   "title_zh": "中文标题翻译",           │
   │   "category": "industry",              │
   │   "summary_zh": "...",                 │
   │   "relevance": 9,                      │
@@ -204,6 +205,7 @@ text = "\n".join(block["text"] for block in response.json()["content"] if block[
 
 返回JSON（不要其他文本）:
 {
+    "title_zh": "标题的简洁中文翻译",
     "category": "industry|research|tools|safety|policy",
     "category_confidence": 0.0-1.0,
     "summary_zh": "2-3句中文核心摘要",
@@ -251,6 +253,6 @@ text = "\n".join(block["text"] for block in response.json()["content"] if block[
        OK     Process (75.3s, 50 items)
 ```
 
-- 进度基于 `rich.console.Console`，在 `processor/processor.py` 的 `process_unprocessed()` 和 `process_all_force()` 中实现
+- 进度基于 `rich.console.Console`，在 `processor/processor.py` 的 `process_unprocessed()`、`process_all_force()` 和 `backfill_title_zh()` 中实现
 - 少于 5 篇时仅在全部完成时打印一行（如 `Processed 3/3 articles`）
 - 0 篇时不打印进度行

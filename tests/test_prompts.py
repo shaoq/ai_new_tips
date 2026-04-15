@@ -62,3 +62,7 @@ class TestMergedProcessPrompt:
         assert "{title}" not in rendered
         assert "{source_name}" not in rendered
         assert "{content}" not in rendered
+
+    def test_template_contains_title_zh_requirement(self) -> None:
+        """Prompt 要求 LLM 返回 title_zh 字段."""
+        assert "title_zh" in MERGED_PROCESS_PROMPT

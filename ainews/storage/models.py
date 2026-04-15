@@ -17,6 +17,7 @@ class Article(SQLModel, table=True):
     url: str = Field(unique=True, index=True)
     url_hash: str = Field(default="", index=True)
     title: str = Field(default="")
+    title_zh: str = Field(default="")
     content_raw: str = Field(default="")
     source: str = Field(default="", index=True)
     source_name: str = Field(default="")

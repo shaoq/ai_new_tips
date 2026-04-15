@@ -62,6 +62,22 @@ class TestBuildFeedcard:
         result = build_feedcard([{"title": "A", "url": "http://x"}])
         assert result["msgtype"] == "feedCard"
 
+    def test_feedcard_prefers_title_zh(self) -> None:
+        """优先使用 title_zh."""
+        articles = [
+            {"title": "English Title", "title_zh": "中文标题", "url": "https://example.com/1"},
+        ]
+        result = build_feedcard(articles)
+        assert result["feedCard"]["links"][0]["title"] == "中文标题"
+
+    def test_feedcard_falls_back_to_title(self) -> None:
+        """title_zh 为空时回退到 title."""
+        articles = [
+            {"title": "English Title", "title_zh": "", "url": "https://example.com/1"},
+        ]
+        result = build_feedcard(articles)
+        assert result["feedCard"]["links"][0]["title"] == "English Title"
+
 
 class TestBuildActioncard:
     """测试 actionCard 消息构建."""
@@ -115,6 +131,18 @@ class TestBuildActioncard:
         }
         result = build_actioncard(article)
         assert "### Breaking News" in result["actionCard"]["text"]
+
+    def test_actioncard_prefers_title_zh(self) -> None:
+        """actionCard 优先使用 title_zh."""
+        article = {
+            "title": "English Title",
+            "title_zh": "中文标题",
+            "summary_zh": "Summary",
+            "url": "https://example.com/1",
+        }
+        result = build_actioncard(article)
+        assert result["actionCard"]["title"] == "中文标题"
+        assert "### 中文标题" in result["actionCard"]["text"]
 
 
 class TestBuildMarkdownWeekly:
