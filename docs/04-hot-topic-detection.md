@@ -9,43 +9,60 @@
 ## 三层热点检测架构
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  Layer 1: 单源热度 (每个平台自己的排名算法)                       │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
-│  │ HN Score │  │ Reddit   │  │ HF Papers│  │ GitHub   │      │
-│  │ 排名算法  │  │ Hot 排名  │  │ Upvotes │  │ Stars    │      │
-│  │ + 速度   │  │ + 评论数  │  │ (每日精选)│  │ + 速度   │      │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘      │
-│       │              │              │              │            │
-│  Layer 2: 跨源关联 (同一话题出现在多个平台 = 真热点)             │
-│       └──────────┬───┴──────────┬───┘              │            │
-│                  │   URL 去重    │                  │            │
-│                  │   标题聚类    │                  │            │
-│                  └──────┬───────┘                  │            │
-│                         │                          │            │
-│  Layer 3: LLM 增强 (提取人名/公司/项目 = 自动发现)              │
-│                         │                          │            │
-│                  ┌──────▼───────┐                  │            │
-│                  │ 实体提取      │                  │            │
-│                  │ 新实体检测    │◀─────────────────┘            │
-│                  │ 话题聚类      │                               │
-│                  └──────────────┘                               │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│  Layer 1: 单源热度 (trend/hotness.py — 各平台排名算法)              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │ HN Score │  │ Reddit   │  │ HF Papers│  │ GitHub   │          │
+│  │ gravity  │  │ Hot 排名  │  │ Upvotes │  │ Stars    │          │
+│  │ + 速度   │  │ + 评论数  │  │ (每日精选)│  │ + 速度   │          │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
+│       │              │              │              │                │
+│  Layer 2: 跨源关联 (trend/correlator.py — 同一话题出现在多平台)    │
+│       └──────────┬───┴──────────┬───┘              │                │
+│                  │              │                  │                │
+│  trend/url_normalizer.py        │                  │                │
+│  trend/title_cluster.py         │                  │                │
+│  trend/dedup.py                 │                  │                │
+│                  └──────┬───────┘                  │                │
+│                         │                          │                │
+│  Layer 3: LLM 增强 (trend/entity_discovery.py + auto_discover.py)  │
+│                         │                          │                │
+│                  ┌──────▼───────┐                  │                │
+│                  │ 实体提取      │                  │                │
+│                  │ 新实体检测    │◀─────────────────┘                │
+│                  │ 自动发现      │                                   │
+│                  └──────────────┘                                   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 模块结构
+
+```
+ainews/trend/
+├── url_normalizer.py   # URL 标准化与 hash 计算
+├── title_cluster.py    # 标题语义聚类 (SequenceMatcher)
+├── hotness.py          # 单源热度算法 (各平台排名 + sigmoid 归一化)
+├── scorer.py           # 综合趋势评分 (多维度加权)
+├── correlator.py       # 跨源关联引擎 (URL 匹配 + 标题聚类)
+├── dedup.py            # 内容指纹去重 (标题相似度 > 0.9)
+├── entity_discovery.py # 实体发现引擎 (从 LLM 结果中提取实体)
+└── auto_discover.py    # 自动发现机制 (新兴研究员/项目/公司)
 ```
 
 ## Layer 1: 单源热度算法
 
+实现于 `trend/hotness.py`，使用 sigmoid 归一化将各平台分数映射到 [0, 1]。
+
 ### HackerNews 排名算法
 
 ```python
-def calculate_hn_score(votes: int, item_hour_age: float, gravity: float = 1.8) -> float:
-    """
-    HN 官方排名算法 (来自 news.arc 源码)
-    gravity 控制时间衰减速度，默认 1.8
-    """
-    return (votes - 1) / pow((item_hour_age + 2), gravity)
+def calculate_hn_score(points, comment_count, hours_ago, gravity=1.8):
+    """HN 排名: (points + comments * 0.5) / (hours_ago + 2) ^ gravity"""
+    return (points + comment_count * 0.5) / pow(hours_ago + 2, gravity)
 ```
+
+归一化: `sigmoid_normalize(raw_score, midpoint=10.0, steepness=0.15)`
 
 **热度阈值（经验值）:**
 
@@ -59,21 +76,7 @@ def calculate_hn_score(votes: int, item_hour_age: float, gravity: float = 1.8) -
 
 ### Reddit 排名算法
 
-```python
-from math import log
-
-def reddit_hot(ups: int, downs: int, date_timestamp: float) -> float:
-    """
-    Reddit 官方 Hot 排名算法
-    对数缩放：前 10 票 = 后 100 票 = 后 1000 票
-    时间衰减：每 12.5 小时降一个单位
-    """
-    score = ups - downs
-    order = log(max(abs(score), 1), 10)
-    sign = 1 if score > 0 else -1 if score < 0 else 0
-    seconds = date_timestamp - 1134028003
-    return round(sign * order + seconds / 45000, 7)
-```
+归一化: `sigmoid_normalize(raw_score, midpoint=80.0, steepness=0.2)`
 
 **阈值:**
 
@@ -86,36 +89,58 @@ def reddit_hot(ups: int, downs: int, date_timestamp: float) -> float:
 
 ### HuggingFace Papers 热度
 
+归一化: `sigmoid_normalize(raw_score, midpoint=20.0, steepness=0.15)`
+
 - Upvotes > 100 = 强热点
 - Upvotes > 50 = 值得关注
 
 ### GitHub Stars 速度
 
+归一化: `sigmoid_normalize(raw_score, midpoint=50.0, steepness=0.1)`
+
 - 一周内新增 500+ stars = 热门项目
 
 ## Layer 2: 跨源关联
 
-### URL 去重
+### URL 标准化 (`trend/url_normalizer.py`)
 
 ```python
-from urllib.parse import urlparse
-
 def normalize_url(url: str) -> str:
-    """URL 标准化，用于跨源匹配"""
-    parsed = urlparse(url)
-    domain = parsed.netloc.replace("www.", "")
-    path = parsed.path.rstrip("/")
-    # 移除 tracking 参数、fragment 等
-    return f"{domain}{path}"
+    """标准化 URL:
+    1. 移除 scheme (http/https 差异)
+    2. 移除 www 前缀
+    3. 移除 tracking 参数 (utm_*, fbclid, gclid 等)
+    4. 排序剩余查询参数
+    5. 移除 trailing slash
+    6. 转小写 hostname
+    7. 移除 fragment (#锚点)
+    """
 ```
 
-### 标题语义聚类
+### 标题语义聚类 (`trend/title_cluster.py`)
 
 ```python
-def title_similarity(t1: str, t2: str) -> float:
-    """标题相似度。生产环境可用 sentence-transformers 替代"""
-    from difflib import SequenceMatcher
-    return SequenceMatcher(None, t1.lower(), t2.lower()).ratio()
+def title_similarity(title_a: str, title_b: str) -> float:
+    """使用 SequenceMatcher 计算最长公共子序列比率。返回 [0.0, 1.0]"""
+
+def cluster_titles(session, days=1, threshold=0.8):
+    """对指定天数的文章执行标题聚类，返回 Cluster 列表"""
+```
+
+默认聚类阈值为 0.8（比去重的 0.9 更宽松，用于跨源关联）。
+
+### 跨源关联引擎 (`trend/correlator.py`)
+
+```python
+class CrossSourceCorrelator:
+    """跨源关联器：检测同一话题在不同平台的出现."""
+
+    def correlate(self, days=1, url_threshold=1.0, title_threshold=0.8):
+        """对指定时间范围内的文章执行跨源关联:
+        1. URL 精确匹配 (标准化后)
+        2. 标题语义聚类
+        3. 合并结果，计算 source_count
+        """
 ```
 
 ### 跨源关联示例
@@ -130,119 +155,113 @@ def title_similarity(t1: str, t2: str) -> float:
   RSS:         OpenAI Blog 新文章         (直接源)
        │           URL: openai.com/blog/gpt-6
        ▼
-  关联成功! 3个平台命中 → trend_score 大幅提升 → 标记 is_trending
+  correlator.py 关联成功! 3个平台命中 → trend_score 大幅提升 → 标记 is_trending
 ```
 
-## Layer 3: LLM 实体提取
-
-### Prompt 设计
-
-```
-从以下文章中提取所有命名实体，返回 JSON:
-{
-    "people": ["人名列表 (研究员、创始人、高管)"],
-    "companies": ["公司/组织名列表"],
-    "projects": ["项目/产品/模型名列表"],
-    "technologies": ["具体技术名称列表"]
-}
-
-文章内容:
-{article_text}
-
-只返回有效 JSON，不要其他文本。
-```
-
-### 新实体检测逻辑
+### 内容指纹去重 (`trend/dedup.py`)
 
 ```python
-def detect_new_entities(extracted: dict, known_entities: set) -> dict:
-    """对比已知实体库，检测新实体"""
-    new_entities = {}
-    for category, entities in extracted.items():
-        new_in_category = [e for e in entities if e.lower() not in known_entities]
-        if new_in_category:
-            new_entities[category] = new_in_category
-    return new_entities
+def dedup_articles(session, days=7, threshold=0.9):
+    """扫描未去重文章，通过标题相似度检测重复.
+    相似度 > 0.9 → 标记 status = "duplicate"
+    保留最早入库的文章，后续的标记为重复。
+    """
+
+def get_dedup_stats(session) -> dict[str, int]:
+    """返回去重统计信息"""
 ```
 
-## 综合热点评分算法
+## Layer 3: 实体发现与自动发现
+
+### 实体发现引擎 (`trend/entity_discovery.py`)
 
 ```python
-def calculate_trend_score(
-    platform_hotness: float,      # 单源热度 (0-1 归一化)
-    source_count: int,            # 出现平台数
-    velocity: float,              # 增长速度
-    entity_novelty: bool,         # 是否涉及新实体
-) -> float:
-    """
-    综合热点评分 (0-10)
-    """
-    cross_platform_bonus = source_count ** 1.5
-    novelty_bonus = 1.2 if entity_novelty else 1.0
+ENTITY_TYPES = {"person", "company", "project", "technology"}
 
-    score = (
-        platform_hotness * 0.35
-        + min(cross_platform_bonus / 5, 1.0) * 0.35
-        + min(velocity / 2.0, 1.0) * 0.20
-    ) * novelty_bonus * 10
+def discover_entities(session, article_ids=None):
+    """从已处理文章的 entities JSON 字段提取实体列表.
+    - 解析每篇文章的 entities 字段
+    - 通过 get_or_create 在 entities 表中创建或更新实体
+    - 建立 article_entities 关联
+    - 检测新实体 (is_new 标记)
+    """
+```
 
-    return round(min(score, 10.0), 1)
+### 自动发现机制 (`trend/auto_discover.py`)
+
+```python
+def discover_emerging_researchers(session, days=30):
+    """发现新兴研究员：统计 person 实体出现频次，
+    首次出现在近期窗口内的标记为 emerging_researcher。"""
+
+def discover_new_projects(session, days=7):
+    """发现新 AI 项目：追踪 project 类型实体的首次出现和关联文章数。"""
+
+def discover_new_companies(session, days=30):
+    """发现新公司/组织：追踪 company 类型实体，首次出现时标记。"""
+```
+
+## 综合热点评分算法 (`trend/scorer.py`)
+
+```python
+# 权重
+WEIGHT_PLATFORM = 0.35        # 单源热度
+WEIGHT_CROSS_PLATFORM = 0.35  # 跨源关联
+WEIGHT_VELOCITY = 0.20        # 增长速度
+
+# 新实体加成
+NOVELTY_BONUS_WITH_NEW_ENTITY = 1.2
+NOVELTY_BONUS_DEFAULT = 1.0
+
+# 热点阈值
+TRENDING_THRESHOLD = 6.0
+
+def calculate_trend_score(platform_hotness, cross_platform_bonus,
+                          velocity, has_new_entity=False):
+    """综合评分公式:
+    score = (platform_hotness * 0.35 + cross_platform_bonus * 0.35
+             + velocity * 0.20) * novelty_bonus * 10
+    """
 ```
 
 **评分含义:**
 
 | 分数 | 含义 | 推送策略 |
 |------|------|---------|
-| 0-4 | 低关注度 | 仅存入 Obsidian |
-| 4-6 | 普通 | 存入 + 日报汇总 |
-| 6-8 | 值得关注 | 存入 + 日报 + 标记热点 |
-| 8-10 | 重大热点 | 存入 + 即时推送 actionCard + 日报 |
+| 0-4 (low) | 低关注度 | 仅存入 Obsidian |
+| 4-6 (normal) | 普通 | 存入 + 日报汇总 |
+| 6-8 (notable) | 值得关注 | 存入 + 日报 + 标记热点 |
+| 8-10 (major) | 重大热点 | 存入 + 即时推送 actionCard + 日报 |
 
 ## 自动发现机制
 
 ### 发现新兴研究员
 
 ```
-数据源: ArXiv + Semantic Scholar API
+模块: trend/auto_discover.py
 方法:
-  1. 追踪近期 AI 论文作者
-  2. 计算引用加速度: recent_citations / total_citations
-  3. 满足条件 → 标记 "emerging_researcher"
-     - 3 个月内发表 3+ 篇论文
-     - 平均引用 > 5
-     - 引用加速度 > 2x
+  1. 统计近期 person 类型实体的出现频次
+  2. 首次出现在近期窗口内 → 标记 "emerging_researcher"
+  3. 关联其出现过的文章
 ```
 
 ### 发现新 AI 项目
 
 ```
-数据源: HackerNews "Show HN" + GitHub Trending
+模块: trend/auto_discover.py
 方法:
-  1. HN: 筛选 Show HN 帖子中的 AI 关键词，points > 50
-  2. GitHub: 新仓库一周获 500+ stars
-  3. 交叉验证: 同一项目在 HN + GitHub 同时出现 → 确认
+  1. 追踪 project 类型实体的首次出现
+  2. 统计关联文章数量
+  3. 多源出现 → 确认为热门新项目
 ```
 
 ### 发现新公司/组织
 
 ```
-数据源: LLM 实体提取 + 跨文章关联
+模块: trend/auto_discover.py
 方法:
   1. 从文章中提取 company 实体
   2. 与已知公司库对比
   3. 首次出现的公司 → 标记 "new_company"
   4. 后续追踪其出现频率和关联文章
-```
-
-## Semantic Scholar API
-
-```
-端点: https://api.semanticscholar.org/graph/v1/
-免费额度: 每5分钟1000次请求
-
-关键端点:
-  GET /paper/search?query=machine+learning&year=2026
-  GET /paper/ArXiv:{id}?fields=citationCount,authors
-  GET /paper/ArXiv:{id}/citations?fields=publicationDate
-  GET /author/{id}?fields=name,paperCount,citationCount,hIndex
 ```
