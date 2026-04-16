@@ -25,7 +25,7 @@ def _create_processor() -> tuple[ArticleProcessor, "Session"]:
 
     llm_client = LLMClient(config.llm)
     processor = ArticleProcessor(llm_client)
-    session = next(get_session(config))
+    session = get_session(config)
     return processor, session
 
 
@@ -54,20 +54,21 @@ def process_callback(
     --all --force: 强制重新处理所有文章
     --backfill-title-zh: 回填已处理文章的中文标题
     """
-    processor, session = _create_processor()
+    processor, ctx_mgr = _create_processor()
     batch_limit = limit if limit > 0 else None
 
-    try:
-        if article is not None:
-            _process_single(processor, session, article)
-        elif backfill_title_zh:
-            _backfill_title_zh(processor, session, batch_limit)
-        elif all_articles and force:
-            _process_all_force(processor, session)
-        else:
-            _process_unprocessed(processor, session)
-    finally:
-        session.close()
+    with ctx_mgr as session:
+        try:
+            if article is not None:
+                _process_single(processor, session, article)
+            elif backfill_title_zh:
+                _backfill_title_zh(processor, session, batch_limit)
+            elif all_articles and force:
+                _process_all_force(processor, session)
+            else:
+                _process_unprocessed(processor, session)
+        finally:
+            pass
 
 
 def _process_single(
