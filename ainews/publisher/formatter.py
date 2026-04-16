@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from ainews.publisher.source_map import get_source_type_label
+
+
+# source_type 排序权重（越小越靠前）
+_SOURCE_TYPE_ORDER = {"article": 0, "paper": 1, "repo": 2}
+
 
 # ---------------------------------------------------------------------------
 # 2.1 feedCard 消息（晨报 / 晚报）
@@ -16,16 +22,30 @@ def build_feedcard(
     """构建 feedCard 消息体.
 
     Args:
-        articles: 文章列表，每篇需包含 title / url / pic_url (可选)
+        articles: 文章列表，每篇需包含 title / url / pic_url / source_type
         title: 卡片标题
 
     Returns:
         完整的钉钉 feedCard 消息体
     """
+    # 按 source_type 分组排序，同类型按 trend_score 降序
+    sorted_articles = sorted(
+        articles,
+        key=lambda a: (
+            _SOURCE_TYPE_ORDER.get(a.get("source_type", "article"), 0),
+            -(a.get("trend_score", 0.0) or 0.0),
+        ),
+    )
+
     links: list[dict[str, str]] = []
-    for article in articles:
+    for article in sorted_articles:
+        raw_title = article.get("title_zh", "") or article.get("title", "无标题")
+        source_type = article.get("source_type", "article")
+        label = get_source_type_label(source_type)
+        prefixed_title = f"[{label}] {raw_title}"
+
         link: dict[str, str] = {
-            "title": article.get("title_zh", "") or article.get("title", "无标题"),
+            "title": prefixed_title,
             "messageURL": article.get("url", ""),
         }
         pic_url = article.get("pic_url", "")
@@ -134,7 +154,9 @@ def build_markdown_weekly(
             title = article.get("title_zh", "") or article.get("title", "无标题")
             url = article.get("url", "")
             score = article.get("trend_score", 0.0)
-            lines.append(f"{i}. [{title}]({url}) (热度: {score:.1f})")
+            source_type = article.get("source_type", "article")
+            label = get_source_type_label(source_type)
+            lines.append(f"{i}. [{title}]({url}) (热度: {score:.1f}) [{label}]")
         lines.append("")
 
     markdown_text = "\n".join(lines)
@@ -178,8 +200,10 @@ def build_markdown_noon(articles: list[dict[str, Any]]) -> dict[str, Any]:
             url = article.get("url", "")
             score = article.get("trend_score", 0.0)
             source = article.get("source_name", "")
+            source_type = article.get("source_type", "article")
+            label = get_source_type_label(source_type)
             lines.append(
-                f"- [{title}]({url}) (热度: {score:.1f}) - {source}"
+                f"- [{title}]({url}) (热度: {score:.1f}) [{label}] - {source}"
             )
 
     lines.append("")

@@ -310,6 +310,9 @@ def _do_evening_push(
 
 def _article_to_dict(article: Article) -> dict[str, str | float]:
     """将 Article 对象转换为消息构建器所需的字典."""
+    from ainews.publisher.source_map import get_favicon_url, get_source_type
+
+    source_type = get_source_type(article.source)
     return {
         "title": article.title,
         "url": article.url,
@@ -317,6 +320,8 @@ def _article_to_dict(article: Article) -> dict[str, str | float]:
         "trend_score": article.trend_score,
         "source_name": article.source_name,
         "category": article.category,
+        "source_type": source_type,
+        "pic_url": get_favicon_url(article.source),
         "obsidian_url": "",  # Obsidian URL 需要从其他模块获取
     }
 
