@@ -49,12 +49,13 @@ class TestDefaultSources:
     def test_default_source_names(
         self, fetcher_no_config: ChineseFetcher,
     ) -> None:
-        """默认源包含 qbitai, jiqizhixin, aibase."""
+        """默认源包含 qbitai, jiqizhixin, 36kr, ifanr."""
         resolved = fetcher_no_config._resolve_config(ChineseConfig(sources=[]))
         names = {s.name for s in resolved.sources}
         assert "qbitai" in names
         assert "jiqizhixin" in names
-        assert "aibase" in names
+        assert "36kr" in names
+        assert "ifanr" in names
 
     def test_default_source_urls(
         self, fetcher_no_config: ChineseFetcher,
@@ -113,7 +114,7 @@ class TestConfigOverride:
         names = {s.name for s in resolved.sources}
         assert "qbitai" not in names
         assert "jiqizhixin" not in names
-        assert "aibase" not in names
+        assert "36kr" not in names
 
     def test_multiple_custom_sources(
         self, fetcher_with_config: ChineseFetcher,

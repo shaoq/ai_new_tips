@@ -83,7 +83,7 @@ class TestChineseConfig:
     def test_chinese_with_sources(self) -> None:
         sources = [
             ChineseSourceConfig(name="qbitai", url="https://www.qbitai.com/", method="rss"),
-            ChineseSourceConfig(name="aibase", url="https://www.aibase.com/", method="scrape"),
+            ChineseSourceConfig(name="36kr", url="https://www.36kr.com/", method="scrape"),
         ]
         cfg = ChineseConfig(sources=sources)
         assert len(cfg.sources) == 2

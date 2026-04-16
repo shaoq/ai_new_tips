@@ -12,9 +12,9 @@ from unittest.mock import MagicMock
 
 class TestDefaultRSSFeeds:
     def test_feed_count(self) -> None:
-        """DEFAULT_RSS_FEEDS 包含约 31 个条目."""
+        """DEFAULT_RSS_FEEDS 包含约 24 个条目."""
         from ainews.fetcher.rss import DEFAULT_RSS_FEEDS
-        assert len(DEFAULT_RSS_FEEDS) >= 25
+        assert len(DEFAULT_RSS_FEEDS) >= 22
 
     def test_original_sources_present(self) -> None:
         """原始源仍然存在."""
@@ -23,7 +23,6 @@ class TestDefaultRSSFeeds:
             "openai-blog",
             "deepmind",
             "huggingface",
-            "marktechpost",
             "venturebeat-ai",
         ]
         for name in expected_original:
@@ -41,10 +40,10 @@ class TestDefaultRSSFeeds:
             assert name in DEFAULT_RSS_FEEDS, f"Missing Reddit RSS source: {name}"
 
     def test_anthropic_sources(self) -> None:
-        """Anthropic 官方 RSS 源（via RSSHub）."""
+        """Anthropic 社区源覆盖."""
         from ainews.fetcher.rss import DEFAULT_RSS_FEEDS
-        assert "anthropic-news" in DEFAULT_RSS_FEEDS
-        assert "anthropic-research" in DEFAULT_RSS_FEEDS
+        assert "reddit-claudeai" in DEFAULT_RSS_FEEDS
+        assert "reddit-anthropicai" in DEFAULT_RSS_FEEDS
 
     def test_community_sources(self) -> None:
         """社区源."""
@@ -61,12 +60,10 @@ class TestDefaultRSSFeeds:
         """Newsletter / 博客源."""
         from ainews.fetcher.rss import DEFAULT_RSS_FEEDS
         blog_sources = [
-            "developers-digest",
             "pragmatic-engineer",
             "ai-maker",
             "the-ai-corner",
             "alexop-dev",
-            "codecentric",
             "changelog",
         ]
         for name in blog_sources:
@@ -75,7 +72,6 @@ class TestDefaultRSSFeeds:
     def test_chinese_sources(self) -> None:
         """中文源."""
         from ainews.fetcher.rss import DEFAULT_RSS_FEEDS
-        assert "ccino-org" in DEFAULT_RSS_FEEDS
         assert "tony-bai" in DEFAULT_RSS_FEEDS
         assert "hellogithub" in DEFAULT_RSS_FEEDS
 
@@ -190,17 +186,18 @@ class TestRedditDefaults:
 
 class TestChineseDefaults:
     def test_default_chinese_sources(self) -> None:
-        """DEFAULT_CHINESE_SOURCES 包含三个默认源."""
+        """DEFAULT_CHINESE_SOURCES 包含四个默认源."""
         from ainews.fetcher.chinese import DEFAULT_CHINESE_SOURCES
         names = {s["name"] for s in DEFAULT_CHINESE_SOURCES}
         assert "qbitai" in names
         assert "jiqizhixin" in names
-        assert "aibase" in names
+        assert "36kr" in names
+        assert "ifanr" in names
 
     def test_default_chinese_sources_count(self) -> None:
-        """默认 3 个中文源."""
+        """默认 4 个中文源."""
         from ainews.fetcher.chinese import DEFAULT_CHINESE_SOURCES
-        assert len(DEFAULT_CHINESE_SOURCES) == 3
+        assert len(DEFAULT_CHINESE_SOURCES) == 4
 
     def test_default_chinese_sources_all_rss(self) -> None:
         """默认中文源都是 RSS 方式."""

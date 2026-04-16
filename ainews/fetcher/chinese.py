@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_CHINESE_SOURCES: list[dict[str, str]] = [
     {"name": "qbitai", "url": "https://www.qbitai.com/feed", "method": "rss"},
     {"name": "jiqizhixin", "url": "https://www.jiqizhixin.com/rss", "method": "rss"},
-    {"name": "aibase", "url": "https://www.aibase.com/rss", "method": "rss"},
+    {"name": "36kr", "url": "https://www.36kr.com/feed", "method": "rss"},
+    {"name": "ifanr", "url": "https://www.ifanr.com/feed", "method": "rss"},
 ]
 
 
@@ -39,13 +40,6 @@ _SOURCE_SELECTORS: dict[str, dict[str, str]] = {
         "link": "h2 a, h3 a, .title a",
         "summary": ".article-des, .description, p",
         "time": "time, .date, .pub-time",
-    },
-    "aibase": {
-        "container": ".news-item, article, .item",
-        "title": "h3 a, h2 a, .title a",
-        "link": "h3 a, h2 a, .title a",
-        "summary": ".desc, .description, p",
-        "time": "time, .date, .pub-date",
     },
 }
 

@@ -23,29 +23,25 @@ DEFAULT_RSS_FEEDS: dict[str, str] = {
     "openai-blog": "https://openai.com/blog/rss.xml",
     "deepmind": "https://deepmind.google/blog/rss.xml",
     "huggingface": "https://huggingface.co/blog/feed.xml",
-    "marktechpost": "https://www.marktechpost.com/feed/",
     "venturebeat-ai": "https://venturebeat.com/category/ai/feed/",
+    "techcrunch-ai": "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "aws-ml-blog": "https://aws.amazon.com/blogs/machine-learning/feed/",
+    "simonwillison": "https://simonwillison.net/atom/everything/",
     # Reddit RSS（无需 OAuth，替代 PRAW 采集器）
     "reddit-machinelearning": "https://www.reddit.com/r/MachineLearning/.rss",
     "reddit-localllama": "https://www.reddit.com/r/LocalLLaMA/.rss",
     "reddit-chatgpt": "https://www.reddit.com/r/ChatGPT/.rss",
-    # ── Anthropic 官方（via RSSHub）──
-    "anthropic-news": "https://rsshub.app/anthropic/news",
-    "anthropic-research": "https://rsshub.app/anthropic/research",
     # ── 社区 ──
     "reddit-claudeai": "https://www.reddit.com/r/ClaudeAI/.rss",
     "reddit-anthropicai": "https://www.reddit.com/r/AnthropicAI/.rss",
     "devto-claude": "https://dev.to/feed/tag/claude",
     # ── Newsletter / 博客 ──
-    "developers-digest": "https://www.developersdigest.tech/rss.xml",
     "pragmatic-engineer": "https://newsletter.pragmaticengineer.com/feed",
     "ai-maker": "https://aimaker.substack.com/feed",
     "the-ai-corner": "https://www.the-ai-corner.com/feed",
     "alexop-dev": "https://alexop.dev/rss.xml",
-    "codecentric": "https://www.codecentric.de/rss.xml",
     "changelog": "https://changelog.com/feed",
     # ── 中文源 ──
-    "ccino-org": "https://blog.ccino.org/rss.xml",
     "tony-bai": "https://tonybai.com/feed/",
     "hellogithub": "https://hellogithub.com/rss",
     # ── GitHub 仓库发现 ──

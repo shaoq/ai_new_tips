@@ -129,13 +129,13 @@ class TestSourcesAddChinese:
 
         result = runner.invoke(sources_app, [
             "add", "chinese",
-            "--name", "aibase",
-            "--url", "https://www.aibase.com/",
+            "--name", "36kr",
+            "--url", "https://www.36kr.com/",
             "--method", "scrape",
         ])
 
         assert result.exit_code == 0
-        assert "aibase" in result.output
+        assert "36kr" in result.output
 
     def test_add_chinese_missing_name(self) -> None:
         result = runner.invoke(sources_app, [
@@ -186,7 +186,7 @@ class TestSourcesRemoveChinese:
                 chinese=ChineseConfig(
                     sources=[
                         ChineseSourceConfig(name="qbitai", url="https://qbitai.com", method="rss"),
-                        ChineseSourceConfig(name="aibase", url="https://aibase.com", method="scrape"),
+                        ChineseSourceConfig(name="36kr", url="https://36kr.com", method="scrape"),
                     ],
                 ),
             ),

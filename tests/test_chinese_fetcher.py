@@ -44,7 +44,7 @@ def multi_source_fetcher() -> ChineseFetcher:
         sources=[
             {"name": "qbitai", "url": "https://www.qbitai.com/feed", "method": "rss"},
             {"name": "jiqizhixin", "url": "https://www.jiqizhixin.com/", "method": "scrape"},
-            {"name": "aibase", "url": "https://www.aibase.com/news", "method": "scrape"},
+            {"name": "36kr", "url": "https://www.36kr.com/news", "method": "scrape"},
         ],
     )
     return ChineseFetcher(config=cfg)
@@ -67,8 +67,8 @@ class TestGetSelectors:
         assert "container" in sel
         assert sel["container"] == "article, .article-item, .article_content"
 
-    def test_known_source_aibase(self) -> None:
-        sel = _get_selectors("aibase")
+    def test_known_source_36kr(self) -> None:
+        sel = _get_selectors("36kr")
         assert "container" in sel
 
     def test_unknown_source_falls_back(self) -> None:
@@ -726,23 +726,23 @@ class TestFaultTolerance:
         error_resp.status_code = 500
         error_resp.raise_for_status.side_effect = Exception("HTTP 500")
 
-        # qbitai=RSS(ok), jiqizhixin=scrape(error), aibase=scrape(ok)
+        # qbitai=RSS(ok), jiqizhixin=scrape(error), 36kr=scrape(ok)
         mock_client = MagicMock()
         mock_client.get.side_effect = [
             rss_resp,       # qbitai RSS
             error_resp,     # jiqizhixin scrape - fails
-            scrape_resp,    # aibase scrape
+            scrape_resp,    # 36kr scrape
         ]
         multi_source_fetcher._client = mock_client
 
         with patch("ainews.fetcher.chinese.time.sleep"):
             items = multi_source_fetcher.fetch_items(since=None)
 
-        # 应该拿到 qbitai 和 aibase 的结果，jiqizhixin 失败被跳过
+        # 应该拿到 qbitai 和 36kr 的结果，jiqizhixin 失败被跳过
         assert len(items) == 2
         sources = {item["source_name"] for item in items}
         assert "qbitai" in sources
-        assert "aibase" in sources
+        assert "36kr" in sources
         assert "jiqizhixin" not in sources
 
     def test_all_sources_fail(self, fetcher: ChineseFetcher) -> None:
@@ -1012,9 +1012,9 @@ class TestConnection:
         assert "error" in result
 
     def test_no_sources_configured(self, fetcher: ChineseFetcher) -> None:
-        """未配置任何源."""
-        cfg = ChineseConfig(sources=[])
-        f = ChineseFetcher(config=cfg)
+        """未配置任何源（手动清空默认源后测试）."""
+        f = ChineseFetcher(config=ChineseConfig(sources=[]))
+        f._chinese_config = ChineseConfig(sources=[])
 
         result = f.test_connection()
         assert result["ok"] is False
