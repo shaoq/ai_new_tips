@@ -25,6 +25,9 @@ AI_KEYWORDS: list[str] = [
     "mistral", "grok", "copilot", "prompt", "sora", "midjourney", "stable diffusion",
     "dalle", "image generation", "language model", "foundation model",
     "artificial intelligence",
+    # Agentic coding tools
+    "agentic", "cursor", "windsurf", "codex", "aider", "coding assistant",
+    "computer use",
 ]
 
 _KEYWORD_PATTERN = re.compile(

@@ -17,6 +17,14 @@ from ainews.fetcher.base import BaseFetcher
 logger = logging.getLogger(__name__)
 
 # 中文源专属 CSS 选择器
+# 默认中文 AI 媒体源
+DEFAULT_CHINESE_SOURCES: list[dict[str, str]] = [
+    {"name": "qbitai", "url": "https://www.qbitai.com/feed", "method": "rss"},
+    {"name": "jiqizhixin", "url": "https://www.jiqizhixin.com/rss", "method": "rss"},
+    {"name": "aibase", "url": "https://www.aibase.com/rss", "method": "rss"},
+]
+
+
 _SOURCE_SELECTORS: dict[str, dict[str, str]] = {
     "qbitai": {
         "container": "article.post, .article-item, .post-item",
@@ -81,15 +89,32 @@ class ChineseFetcher(BaseFetcher):
         )
 
     def _resolve_config(self, config: Any) -> ChineseConfig:
-        """从配置对象提取 ChineseConfig."""
+        """从配置对象提取 ChineseConfig，无配置时使用默认源."""
         if isinstance(config, ChineseConfig):
+            if not config.sources:
+                return ChineseConfig(
+                    sources=[
+                        ChineseSourceConfig(**s) for s in DEFAULT_CHINESE_SOURCES
+                    ],
+                )
             return config
         try:
             from ainews.config.loader import get_config
             app_config = get_config()
-            return app_config.sources.chinese
+            cfg = app_config.sources.chinese
+            if not cfg.sources:
+                return ChineseConfig(
+                    sources=[
+                        ChineseSourceConfig(**s) for s in DEFAULT_CHINESE_SOURCES
+                    ],
+                )
+            return cfg
         except Exception:
-            return ChineseConfig()
+            return ChineseConfig(
+                sources=[
+                    ChineseSourceConfig(**s) for s in DEFAULT_CHINESE_SOURCES
+                ],
+            )
 
     # ------------------------------------------------------------------
     # fetch_items

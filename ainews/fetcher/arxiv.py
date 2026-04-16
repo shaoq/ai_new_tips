@@ -19,7 +19,7 @@ ARXIV_API = "https://export.arxiv.org/api/query"
 ATOM_NS = "http://www.w3.org/2005/Atom"
 ARXIV_NS = "http://arxiv.org/schemas/atom"
 
-DEFAULT_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL"]
+DEFAULT_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "stat.ML"]
 
 RATE_LIMIT_SECONDS = 3
 DEFAULT_MAX_RESULTS = 50

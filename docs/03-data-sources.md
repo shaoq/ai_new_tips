@@ -7,11 +7,13 @@
 | **P0** | HackerNews API | 免费 | 极高 | REST API，无需认证 | score + velocity |
 | **P0** | ArXiv API | 免费 | 极高 | REST API，无需认证 | 引用速度 (via Semantic Scholar) |
 | **P0** | AI Blog RSS | 免费 | 高 | feedparser | 跨源出现 |
+| **P0** | Anthropic Official | 免费 | 高 | RSSHub (feedparser) | 跨源出现 |
 | **P1** | Reddit | 免费 | 高 | PRAW (OAuth) | score + comments |
 | **P1** | HuggingFace Papers | 免费 | 高 | REST API，无需认证 | upvotes |
 | **P1** | GitHub Trending | 免费 | 高 | REST API / 爬取 | stars velocity |
+| **P1** | GitHub Releases | 免费 | 高 | REST API，无需认证（可选 PAT） | release 频率 |
 | **P2** | 中文源 | 免费 | 中高 | RSS + 网页解析 | 跨源关联 |
-| **P3** | X/Twitter | 按量付费 | 高 | X API v2 (后续扩展) | — |
+| **P3** | X/Twitter | 按量付费 | 高 | SocialData.tools API | engagement |
 
 ## P0: HackerNews
 
@@ -45,7 +47,13 @@ AI_KEYWORDS = [
     "machine learning", "deep learning", "neural network", "transformer",
     "diffusion", "AGI", "ChatGPT", "OpenAI", "Anthropic", "DeepMind",
     "computer vision", "NLP", "generative", "embedding", "fine-tuning",
-    "RAG", "agent", "MCP", "reasoning", "multimodal"
+    "RAG", "agent", "MCP", "reasoning", "multimodal",
+    "Llama", "Mistral", "Grok", "Copilot", "prompt", "Sora", "Midjourney",
+    "Stable Diffusion", "DALL-E", "image generation", "language model",
+    "foundation model",
+    # Agentic coding tools
+    "agentic", "cursor", "windsurf", "codex", "aider", "coding assistant",
+    "computer use",
 ]
 ```
 
@@ -98,7 +106,7 @@ stat.ML - Machine Learning (Statistics)
 
 ```
 https://export.arxiv.org/api/query?
-  search_query=cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CL
+  search_query=cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CL+OR+cat:cs.CV+OR+cat:stat.ML
   &sortBy=submittedDate
   &sortOrder=descending
   &start=0
@@ -123,13 +131,54 @@ pip install arxiv
 | Google DeepMind | `https://deepmind.google/blog/rss/` | 研究突破 |
 | Hugging Face Blog | `https://huggingface.co/blog/feed.xml` | 开源 ML、模型发布 |
 | MarkTechPost | `https://www.marktechpost.com/feed/` | AI 研究日报 |
-| MIT Tech Review AI | `https://www.technologyreview.com/feed/topic/artificial-intelligence/` | 深度报道 |
 | VentureBeat AI | `https://venturebeat.com/category/ai/feed/` | 产业新闻 |
-| The Gradient | `https://thegradient.pub/rss/` | 研究视角 |
-| BAIR Blog | `https://bair.berkeley.edu/blog/index.xml` | 学术研究 |
 | Reddit r/MachineLearning | `https://www.reddit.com/r/MachineLearning/.rss` | 技术研究、论文讨论 |
 | Reddit r/LocalLLaMA | `https://www.reddit.com/r/LocalLLaMA/.rss` | 本地模型、开源 LLM |
 | Reddit r/ChatGPT | `https://www.reddit.com/r/ChatGPT/.rss` | ChatGPT 新闻和讨论 |
+
+### Anthropic 官方（via RSSHub）
+
+| 源 | RSS URL | 内容类型 |
+|----|---------|---------|
+| Anthropic News | `https://rsshub.app/anthropic/news` | 产品公告、新闻 |
+| Anthropic Research | `https://rsshub.app/anthropic/research` | 研究论文、技术报告 |
+
+### 社区
+
+| 源 | RSS URL | 内容类型 |
+|----|---------|---------|
+| Reddit r/ClaudeAI | `https://www.reddit.com/r/ClaudeAI/.rss` | Claude 用户社区 |
+| Reddit r/AnthropicAI | `https://www.reddit.com/r/AnthropicAI/.rss` | Anthropic 讨论 |
+| dev.to tag "claude" | `https://dev.to/feed/tag/claude` | Claude 开发者文章 |
+
+### Newsletter / 博客
+
+| 源 | RSS URL | 内容类型 |
+|----|---------|---------|
+| Developers Digest | `https://www.developersdigest.tech/rss.xml` | 开发者资讯 |
+| Pragmatic Engineer | `https://newsletter.pragmaticengineer.com/feed` | 工程管理、行业趋势 |
+| AI Maker | `https://aimaker.substack.com/feed` | AI 产品开发 |
+| The AI Corner | `https://www.the-ai-corner.com/feed` | AI 技术分析 |
+| alexop.dev | `https://alexop.dev/rss.xml` | AI/LLM 技术博客 |
+| codecentric | `https://www.codecentric.de/rss.xml` | 技术博客 |
+| Changelog | `https://changelog.com/feed` | 开源软件、开发者新闻 |
+
+### 中文源（RSS）
+
+| 源 | RSS URL | 内容类型 |
+|----|---------|---------|
+| ccino.org | `https://blog.ccino.org/rss.xml` | 技术博客 |
+| Tony Bai | `https://tonybai.com/feed/` | Go/编程技术博客 |
+| HelloGitHub | `https://hellogithub.com/rss` | GitHub 开源项目推荐 |
+
+### GitHub 仓库发现（RSS）
+
+| 源 | RSS URL | 内容类型 |
+|----|---------|---------|
+| GitHub Trending Python (Daily) | `https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml` | Python 热门项目 |
+| GitHub Trending All (Weekly) | `https://mshibanami.github.io/GitHubTrendingRSS/weekly/all.xml` | 全语言周趋势 |
+| LibHunt Python | `https://python.libhunt.com/newsletter/feed` | Python 库推荐 |
+| LibHunt Self-hosted | `https://selfhosted.libhunt.com/newsletter/feed` | 自托管项目推荐 |
 
 ### RSS 解析
 
@@ -155,11 +204,14 @@ pip install feedparser httpx
 
 ### 监控 Subreddit
 
-| Subreddit | 成员数 | 关注点 |
-|-----------|-------|-------|
-| r/MachineLearning | ~3M | 技术研究、论文讨论 |
-| r/LocalLLaMA | 活跃 | 本地模型、开源 LLM |
-| r/ChatGPT | ~9.9M | ChatGPT 新闻和讨论 |
+| Subreddit | 关注点 |
+|-----------|-------|
+| r/MachineLearning | 技术研究、论文讨论 |
+| r/LocalLLaMA | 本地模型、开源 LLM |
+| r/ChatGPT | ChatGPT 新闻和讨论 |
+| r/artificial | AI 通用新闻、行业动态 |
+| r/deeplearning | 深度学习技术讨论 |
+| r/ClaudeAI | Claude 用户社区、使用技巧 |
 
 ### 配置示例
 
@@ -172,6 +224,9 @@ reddit:
     - MachineLearning
     - LocalLLaMA
     - ChatGPT
+    - artificial
+    - deeplearning
+    - ClaudeAI
 ```
 
 ---
@@ -219,20 +274,78 @@ language: python, typescript, rust
 
 ---
 
+## P1: GitHub Releases
+
+### 接入方式
+
+- **端点**: `GET https://api.github.com/repos/{owner}/{repo}/releases`
+- **认证**: 不需要（匿名 10 请求/分钟），可选 PAT（30 请求/分钟）
+- **速率**: 仓库间请求间隔 1.5 秒，避免触发速率限制
+- **Python 库**: httpx
+
+### 监控仓库
+
+按三类分组监控 12 个默认仓库：
+
+**工具类（关注版本发布）：**
+
+| 仓库 | 说明 |
+|------|------|
+| `anthropics/claude-code` | Claude Code CLI |
+| `anthropics/anthropic-sdk-python` | Anthropic Python SDK |
+| `anthropics/courses` | Anthropic 官方教程 |
+
+**资源/指南类（关注内容更新）：**
+
+| 仓库 | 说明 |
+|------|------|
+| `e2b-dev/awesome-ai-agents` | AI Agent 资源合集 |
+| `taishi-i/awesome-ChatGPT-repositories` | ChatGPT 相关项目 |
+| `lukasmasuch/best-of-ml-python` | ML Python 库排行 |
+| `FlorianBruniaux/claude-code-ultimate-guide` | Claude Code 深度指南 |
+
+**GitHub 仓库推荐类：**
+
+| 仓库 | 说明 |
+|------|------|
+| `GitHubDaily/GitHubDaily` | 每日 GitHub 项目推荐 |
+| `OpenGithubs/weekly` | GitHub 周报 |
+| `OpenGithubs/github-weekly-rank` | GitHub 周排行榜 |
+| `GrowingGit/GitHub-Chinese-Top-Charts` | 中文项目排行 |
+| `EvanLi/Github-Ranking` | GitHub 全球排行 |
+
+### 配置示例
+
+```yaml
+sources:
+  github_releases:
+    enabled: true
+    token: ""                    # 可选，提高速率限制
+    repos: []                    # 空则使用默认 12 个仓库
+    fetch_interval_minutes: 360
+```
+
+### 热点信号
+
+- 使用最新 release 的 `published_at` 作为水印
+- 对无 release 的仓库记录 warning 并跳过
+- 速率限制低于阈值（remaining <= 5）时自动 warning
+
+---
+
 ## P2: 中文源
 
 ### 核心源
 
-| 源 | URL | 获取方式 |
-|----|-----|---------|
-| 量子位 (QbitAI) | https://www.qbitai.com/ | RSS / 网页解析 |
-| 机器之心 (Jiqizhixin) | https://www.jiqizhixin.com/ | RSS / 网页解析 |
-| AIbase | https://www.aibase.com/ | 网页解析 |
-| 新智元 | 36Kr 专栏 | RSS |
+| 源 | RSS URL | 获取方式 |
+|----|---------|---------|
+| 量子位 (QbitAI) | `https://www.qbitai.com/feed` | RSS |
+| 机器之心 (Jiqizhixin) | `https://www.jiqizhixin.com/rss` | RSS |
+| AIbase | `https://www.aibase.com/rss` | RSS |
 
 ### 说明
 
-中文源作为辅助，重点英文源。中文 RSS 质量参差不齐，可能需要网页解析兜底。
+中文源默认启用三个核心源（qbitai、jiqizhixin、aibase），均通过 RSS 采集。中文 RSS 质量参差不齐，可能需要网页解析兜底。可通过配置文件自定义添加更多中文源。
 
 ---
 
@@ -268,7 +381,7 @@ language: python, typescript, rust
 
 **模式 B — 热门搜索：**
 - 按 `search_queries` 关键词搜索高互动量推文
-- 默认模板：`(AI OR LLM OR GPT OR "machine learning" OR "deep learning") min_faves:100 -is:retweet lang:en`
+- 默认模板：`(AI OR LLM OR GPT OR "machine learning" OR "deep learning" OR "claude code" OR "cursor ai") min_faves:100 -is:retweet lang:en`
 - 支持完整 Twitter 高级搜索语法（`min_faves`、`lang`、`since_id` 等）
 
 ### 配置示例

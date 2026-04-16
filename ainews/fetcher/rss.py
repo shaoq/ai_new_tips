@@ -19,6 +19,7 @@ MAX_ENTRIES_PER_FEED = 30
 
 # 默认 RSS 源列表
 DEFAULT_RSS_FEEDS: dict[str, str] = {
+    # ── 原始源 ──
     "openai-blog": "https://openai.com/blog/rss.xml",
     "deepmind": "https://deepmind.google/blog/rss.xml",
     "huggingface": "https://huggingface.co/blog/feed.xml",
@@ -28,6 +29,30 @@ DEFAULT_RSS_FEEDS: dict[str, str] = {
     "reddit-machinelearning": "https://www.reddit.com/r/MachineLearning/.rss",
     "reddit-localllama": "https://www.reddit.com/r/LocalLLaMA/.rss",
     "reddit-chatgpt": "https://www.reddit.com/r/ChatGPT/.rss",
+    # ── Anthropic 官方（via RSSHub）──
+    "anthropic-news": "https://rsshub.app/anthropic/news",
+    "anthropic-research": "https://rsshub.app/anthropic/research",
+    # ── 社区 ──
+    "reddit-claudeai": "https://www.reddit.com/r/ClaudeAI/.rss",
+    "reddit-anthropicai": "https://www.reddit.com/r/AnthropicAI/.rss",
+    "devto-claude": "https://dev.to/feed/tag/claude",
+    # ── Newsletter / 博客 ──
+    "developers-digest": "https://www.developersdigest.tech/rss.xml",
+    "pragmatic-engineer": "https://newsletter.pragmaticengineer.com/feed",
+    "ai-maker": "https://aimaker.substack.com/feed",
+    "the-ai-corner": "https://www.the-ai-corner.com/feed",
+    "alexop-dev": "https://alexop.dev/rss.xml",
+    "codecentric": "https://www.codecentric.de/rss.xml",
+    "changelog": "https://changelog.com/feed",
+    # ── 中文源 ──
+    "ccino-org": "https://blog.ccino.org/rss.xml",
+    "tony-bai": "https://tonybai.com/feed/",
+    "hellogithub": "https://hellogithub.com/rss",
+    # ── GitHub 仓库发现 ──
+    "github-trending-python-daily": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml",
+    "github-trending-all-weekly": "https://mshibanami.github.io/GitHubTrendingRSS/weekly/all.xml",
+    "libhunt-python": "https://python.libhunt.com/newsletter/feed",
+    "libhunt-selfhosted": "https://selfhosted.libhunt.com/newsletter/feed",
 }
 
 

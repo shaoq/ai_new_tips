@@ -67,7 +67,10 @@ class RedditConfig(BaseModel):
     client_id: str = ""
     client_secret: str = ""
     user_agent: str = "ai-news-tips/1.0"
-    subreddits: list[str] = ["MachineLearning", "LocalLLaMA", "ChatGPT"]
+    subreddits: list[str] = [
+        "MachineLearning", "LocalLLaMA", "ChatGPT",
+        "artificial", "deeplearning", "ClaudeAI",
+    ]
     fetch_interval_minutes: int = 30
 
 
@@ -87,6 +90,15 @@ class GitHubConfig(BaseModel):
     topics: list[str] = ["machine-learning", "llm", "ai", "transformer"]
     languages: list[str] = ["python", "typescript"]
     min_stars: int = 50
+    fetch_interval_minutes: int = 360
+
+
+class GitHubReleasesConfig(BaseModel):
+    """GitHub Releases 监控配置."""
+
+    enabled: bool = True
+    token: str = ""
+    repos: list[str] = []
     fetch_interval_minutes: int = 360
 
 
@@ -142,6 +154,7 @@ class SourcesConfig(BaseModel):
     reddit: RedditConfig = RedditConfig()
     hf_papers: HFPapersConfig = HFPapersConfig()
     github: GitHubConfig = GitHubConfig()
+    github_releases: GitHubReleasesConfig = GitHubReleasesConfig()
     chinese: ChineseConfig = ChineseConfig()
     rss: SourceConfig = SourceConfig(
         enabled=True,
@@ -203,6 +216,9 @@ class AppConfig(BaseModel):
         )
         data["sources"]["github"]["token"] = _mask(
             data["sources"]["github"]["token"]
+        )
+        data["sources"]["github_releases"]["token"] = _mask(
+            data["sources"]["github_releases"]["token"]
         )
         data["sources"]["twitter"]["api_key"] = _mask(
             data["sources"]["twitter"]["api_key"]

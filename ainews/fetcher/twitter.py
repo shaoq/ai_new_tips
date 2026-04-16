@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 SOCIALDATA_BASE = "https://api.socialdata.tools"
 
 DEFAULT_SEARCH_QUERY = (
-    '(AI OR LLM OR GPT OR "machine learning" OR "deep learning") '
+    '(AI OR LLM OR GPT OR "machine learning" OR "deep learning" '
+    'OR "claude code" OR "cursor ai") '
     "min_faves:100 -is:retweet lang:en"
 )
 
