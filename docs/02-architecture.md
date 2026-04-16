@@ -140,8 +140,7 @@ ainews/
 │
 ├── llm/                    # LLM 抽象层
 │   ├── client.py          # LLM 客户端 (Anthropic 协议，支持 OpenAI 兼容接口)
-│   ├── prompts.py         # Prompt 模板 (合并处理提示词等)
-│   └── config.py          # LLM 配置 (base_url / api_key / model)
+│   └── prompts.py         # Prompt 模板 (合并处理提示词等)
 │
 ├── scheduler/              # 定时任务
 │   ├── launchd.py         # macOS launchd 管理
@@ -152,18 +151,7 @@ ainews/
 │   └── loader.py          # 配置文件读写，YAML 加载/保存
 │
 ├── templates/              # Obsidian 模板
-│   ├── article.md         # 文章模板
-│   ├── daily.md           # 每日笔记模板
-│   ├── entity.md          # 实体页面模板
-│   └── dashboards/        # 仪表盘模板
-│       ├── home.md
-│       ├── trending.md
-│       ├── daily-stats.md
-│       ├── weekly-stats.md
-│       ├── reading-list.md
-│       ├── people-tracker.md
-│       ├── knowledge-graph.md
-│       └── by-category.md
+│   └── __init__.py        # 模板包 (Markdown 模板由 publisher/obsidian_templates.py 渲染)
 │
 └── utils/                  # 工具函数
     └── logging.py          # 日志系统，按日归档 + latest.log 软链接
