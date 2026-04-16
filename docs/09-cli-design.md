@@ -127,6 +127,75 @@ ainews run
         └─ 标记已推送
 ```
 
+#### RunOptions 模式 (`pipeline/runner.py`)
+
+流水线通过 `RunOptions` dataclass 控制执行行为:
+
+```python
+@dataclass
+class RunOptions:
+    backfill: str = ""           # 回溯天数, e.g. "7d"
+    source: str = ""             # 指定源, e.g. "hackernews"
+    skip_sync: bool = False      # 跳过 Obsidian 同步
+    skip_push: bool = False      # 跳过钉钉推送
+    trending_only_push: bool = False  # 只推送热点 (trend_score ≥ 8)
+    dry_run: bool = False        # 预览模式
+    verbose: bool = False        # 详细日志
+    limit: int = 0               # 处理文章数量限制 (0=不限)
+```
+
+#### Step 执行流程
+
+每个步骤由 `PipelineStep(name, execute_fn, skippable, dry_run_desc)` 定义, 执行器按序处理:
+
+```
+PipelineRunner.run()
+  │
+  for step in steps:
+    ├─ _should_skip(step) → 检查 skip_sync / skip_push 选项
+    │     └─ 匹配则标记 SKIPPED
+    ├─ dry_run 模式 → 输出 dry_run_desc, 标记 SKIPPED
+    └─ 实际执行:
+          ├─ step.execute_fn(options) → 返回 count (处理条数)
+          ├─ 成功 → StepResult(OK, duration, count)
+          └─ 异常 → StepResult(FAILED, duration, error)
+```
+
+#### Step 级进度反馈
+
+每个步骤执行时输出实时进度, 完成后显示结果行:
+
+```
+  ▸ fetch...                         # 步骤开始 (实时)
+      OK     fetch (2.3s, 47 items)  # 成功: 耗时 + 处理条数
+      OK     process (5.1s, 32 items)
+   SKIPPED   sync obsidian           # 跳过 (--skip-sync)
+   FAILED    push dingtalk (0.8s) — Connection refused  # 失败: 错误信息
+```
+
+格式说明:
+- **OK** (绿色): `OK  <name> (<duration>s, <count> items)`
+- **SKIPPED** (黄色): `SKIPPED  <name>`
+- **FAILED** (红色): `FAILED  <name> (<duration>s) — <error>`
+
+流水线结束后输出汇总表 (Rich Table):
+
+```
+           Pipeline Summary
+┌──────────────────┬─────────┬───────┬───────┐
+│ Step             │ Status  │ Items │ Time  │
+├──────────────────┼─────────┼───────┼───────┤
+│ fetch            │ OK      │ 47    │ 2.3s  │
+│ process          │ OK      │ 32    │ 5.1s  │
+│ dedup            │ OK      │ 3     │ 0.2s  │
+│ trend            │ OK      │ 5     │ 1.1s  │
+│ sync obsidian    │ SKIPPED │ -     │ -     │
+│ push dingtalk    │ FAILED  │ -     │ 0.8s  │
+├──────────────────┼─────────┼───────┼───────┤
+│ Total            │         │       │ 9.5s  │
+└──────────────────┴─────────┴───────┴───────┘
+```
+
 ### ainews fetch
 
 只拉取数据，不处理。

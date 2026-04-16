@@ -211,3 +211,140 @@ class DingTalkPublisher:
         """检查即时推送每日上限"""
         return self.today_instant_count < 3  # 每天最多3条即时推送
 ```
+
+## 推送策略实现
+
+`publisher/strategy.py` 是推送策略引擎，负责去重判断、每日上限控制和文章查询。核心类为 `PushStrategy`。
+
+### 时间窗口选择
+
+推送模式根据当前小时自动选择：
+
+| 时间段 | 模式 | 查询方法 | 说明 |
+|--------|------|----------|------|
+| 06:00-11:00 | `morning_digest` | `query_morning_articles(limit=10)` | 按趋势分降序取 Top 10 |
+| 11:00-15:00 | `noon_update` | `query_noon_articles()` | 仅 trend_score >= 8 的热点 |
+| 其他 | `evening_digest` | `query_evening_articles()` | 今日全量增量 |
+
+### 午间跳过逻辑
+
+`should_skip_noon()` 判断午间是否跳过推送：
+- 查询今日新文章中 trend_score >= 8.0 的热点文章
+- 如果查询结果为空（无新热点），返回 `True` 跳过推送
+- 有热点时按 trend_score 降序推送
+
+### 晨报文章排序
+
+`query_morning_articles(limit)` 查询逻辑：
+- 筛选条件：`dingtalk_sent == False` 且 `processed == True`
+- 按 `trend_score` 降序排列
+- 默认取 Top 10 篇
+
+### 每日 actionCard 上限
+
+- 常量 `DAILY_ACTIONCARD_LIMIT = 3`，每天最多推送 3 条 actionCard
+- `should_push()` 在 `push_type == "actioncard"` 时检查 `_daily_actioncard_count()`
+- 超过上限则跳过，通过 `push_log` 表统计当日 actionCard 推送数量
+
+### 去重机制
+
+- feedCard 去重：通过 `article.dingtalk_sent` 字段判断，已推送则跳过
+- actionCard 去重：查询 `push_log` 表中是否已有 `push_type == "actioncard"` 的记录
+
+## 消息格式化
+
+`publisher/formatter.py` 负责将文章数据构建为钉钉消息体，所有函数接收 `dict` 类型参数（非 Article 对象）。
+
+### 格式构建函数
+
+| 函数 | 消息类型 | 用途 |
+|------|----------|------|
+| `build_feedcard(articles, title)` | feedCard | 晨报/晚报，展示多篇文章含标题、链接、缩略图 |
+| `build_actioncard(article)` | actionCard | 即时热点，单篇文章含摘要和操作按钮 |
+| `build_markdown_weekly(stats, top_articles)` | markdown | 周报，包含统计数据和 Top 5 热点 |
+| `build_markdown_noon(articles)` | markdown | 午间速报，列出热点文章 |
+| `build_test_message()` | markdown | 测试消息，验证 Webhook 连通性 |
+
+### 字段映射
+
+消息构建器从传入的 `dict` 中读取以下字段：
+
+- `title` — 原始标题（回退值）
+- `title_zh` — 中文标题（优先使用）
+- `url` — 原文链接
+- `summary_zh` — 中文摘要（actionCard 使用，限 480 字符）
+- `trend_score` — 趋势分（markdown 格式显示）
+- `source_name` — 来源名称（午间速报显示）
+- `pic_url` — 缩略图 URL（feedCard 使用，可选）
+- `obsidian_url` — Obsidian 链接（actionCard 按钮使用，可选）
+
+### 文本长度限制
+
+- feedCard 标题：无硬限制
+- actionCard 正文：480 字符截断（钉钉建议 <= 500 字符）
+- markdown 正文：2000 字符截断
+
+## Article 对象转换
+
+`publisher/formatter.py` 的所有构建函数接收 `dict` 类型参数，而非 SQLModel `Article` 对象。调用方必须先将 `Article` 对象转换为字典。
+
+### 转换函数
+
+在 `cli/push.py` 中，`_article_to_dict()` 负责转换：
+
+```python
+def _article_to_dict(article: Article) -> dict[str, str | float]:
+    """将 Article 对象转换为消息构建器所需的字典."""
+    return {
+        "title": article.title,
+        "url": article.url,
+        "summary_zh": article.summary_zh,
+        "trend_score": article.trend_score,
+        "source_name": article.source_name,
+        "category": article.category,
+        "obsidian_url": "",  # Obsidian URL 需要从其他模块获取
+    }
+```
+
+### 为什么需要转换
+
+`fix-push-type-mismatch` 修复引入了此转换层，原因：
+
+1. **解耦**: formatter 不依赖 SQLModel 定义，保持纯数据处理职责
+2. **字段选择**: 仅提取消息构建所需字段，避免传递不必要的数据
+3. **类型安全**: dict 的值类型明确为 `str | float`，与 formatter 的 `Any` 参数兼容
+
+在 pipeline 的 `_step_push()` 中也使用了类似的转换逻辑，直接构造 dict 列表传入 `build_feedcard()`。
+
+## Pipeline 集成
+
+完整流水线通过 `ainews run` 命令执行，共 6 个步骤，钉钉推送为最后一步。
+
+### 流水线步骤
+
+```
+Fetch → Process → Dedup → Trend → Sync Obsidian → Push DingTalk
+  1        2        3       4          5                 6
+```
+
+### Step 6: Push DingTalk
+
+在 `cli/run.py` 的 `_step_push()` 函数中实现：
+
+1. 初始化 `PushStrategy` 和 `DingTalkClient`
+2. 根据选项查询文章：
+   - `--trending-only-push`：调用 `strategy.query_trending_articles()` 获取热点
+   - 默认：调用 `strategy.query_morning_articles()` 获取 Top 10
+3. 将 Article 对象转换为 dict 列表
+4. 调用 `build_feedcard()` 构建消息
+5. 调用 `client.send()` 发送到钉钉
+6. 返回推送文章数量
+
+### 跳过选项
+
+- `--no-push` / `--skip-push`：跳过 Push 步骤（`skip_push=True`）
+- `--trending-only-push`：仅推送 trend_score >= 8 的热点文章
+
+### 与 `ainews push dingtalk` 的区别
+
+`ainews run` 的推送是简化版，仅支持 feedCard 格式。完整的推送功能（actionCard、午间速报、周报、自动时段选择）需通过 `ainews push dingtalk` 命令使用，参见 `cli/push.py`。

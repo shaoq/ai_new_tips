@@ -44,6 +44,19 @@ curl -k -H "Authorization: Bearer YOUR_KEY" https://127.0.0.1:27124/vault/
 > 早期代码中曾误设 `API_PREFIX = "/v0"`，导致所有 PUT 请求返回 404。已修正为 `API_PREFIX = ""`。
 > 如果你在使用中遇到 404 错误，请首先检查 API 路径中是否包含了多余的前缀。
 
+## Publisher 模块结构
+
+Publisher 层拆分为 9 个文件，其中 6 个与 Obsidian 相关：
+
+| 文件 | 职责 |
+|------|------|
+| `obsidian_client.py` | Obsidian Local REST API 客户端，封装连接认证、重试和文件系统降级逻辑 |
+| `article_sync.py` | 文章同步，查询未同步文章并逐篇写入 Vault（REST API + 文件系统降级） |
+| `daily_note.py` | 每日笔记同步，通过 `PATCH /periodic/daily/` 追加更新段落 |
+| `dashboards.py` | 仪表盘初始化，创建 5 个 Bases `.base` 模板文件 |
+| `entity_pages.py` | 实体页面同步，为 People/Companies/Projects 创建 `.md` 页面并更新 frontmatter |
+| `obsidian_templates.py` | Markdown 模板渲染，生成文章 frontmatter/body、每日笔记段落、实体页面、仪表盘 YAML |
+
 ## 写入策略
 
 ### 写入方式
@@ -127,6 +140,7 @@ Vault/
 ```markdown
 ---
 title: "GPT-6 发布：实时推理能力重大突破"
+title_zh: "GPT-6 发布：实时推理能力重大突破"
 date: 2026-04-13
 source: https://openai.com/blog/gpt-6
 source_name: OpenAI Blog

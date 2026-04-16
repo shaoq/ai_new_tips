@@ -23,6 +23,7 @@ CREATE TABLE articles (
     url             TEXT UNIQUE NOT NULL,        -- 原文 URL (唯一约束)
     url_hash        TEXT NOT NULL,               -- URL SHA256 (快速查找)
     title           TEXT NOT NULL,
+    title_zh        TEXT DEFAULT "",             -- 中文标题
     content_raw     TEXT,                        -- 原始内容 (HTML/Markdown)
     source          TEXT NOT NULL,               -- 来源类型: hackernews/arxiv/reddit/rss/hf_papers/github/chinese
     source_name     TEXT,                        -- 来源名称: OpenAI Blog / HackerNews
