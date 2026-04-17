@@ -43,19 +43,22 @@ def process_callback(
     backfill_title_zh: bool = typer.Option(
         False, "--backfill-title-zh", help="回填已处理但 title_zh 为空的文章"
     ),
-    limit: int = typer.Option(
-        0, "--limit", help="限制处理数量（默认50，0=不限制）"
+    limit: Optional[int] = typer.Option(
+        None, "--limit", help="限制处理数量（默认50，0=不限制）"
     ),
 ) -> None:
     """处理文章：分类、摘要、评分、实体提取、标签生成.
 
-    无参数: 处理所有未处理的文章
+    无参数: 处理所有未处理的文章（默认50篇）
+    --limit 0: 不限制，处理全部
+    --limit 100: 处理100篇
     --article <id>: 处理指定 ID 的文章
     --all --force: 强制重新处理所有文章
     --backfill-title-zh: 回填已处理文章的中文标题
     """
     processor, ctx_mgr = _create_processor()
-    batch_limit = limit if limit > 0 else None
+    # None=未传(用默认50), 0=不限制, >0=指定数量
+    batch_limit: int | None = limit
 
     with ctx_mgr as session:
         try:

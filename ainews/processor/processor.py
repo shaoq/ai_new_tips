@@ -122,10 +122,16 @@ class ArticleProcessor:
         articles = self._fetch_round_robin(session, batch_limit)
 
         if not articles:
-            logger.info("没有需要处理的文章")
+            _console.print("[yellow]没有需要处理的文章[/yellow]")
             return []
 
-        logger.info("开始处理 %d 篇未处理文章", len(articles))
+        # 统计各 source 数量
+        source_dist: dict[str, int] = {}
+        for a in articles:
+            source_dist[a.source] = source_dist.get(a.source, 0) + 1
+        dist_str = ", ".join(f"{s}: {c}" for s, c in sorted(source_dist.items(), key=lambda x: -x[1]))
+
+        _console.print(f"\n[bold]开始处理 {len(articles)} 篇文章[/bold] [dim]({dist_str})[/dim]")
         results: list[ProcessResult] = []
 
         for i, article in enumerate(articles):
@@ -134,10 +140,12 @@ class ArticleProcessor:
             session.commit()
 
             done = i + 1
-            if done % 5 == 0 or done == len(articles):
-                _console.print(
-                    f"    [dim]·[/dim] Processed [cyan]{done}[/cyan]/[dim]{len(articles)}[/dim] articles"
-                )
+            _console.print(
+                f"  [{done}/{len(articles)}] "
+                f"{'[green]✓[/green]' if result.success else '[red]✗[/red]'} "
+                f"[dim]{article.source_name}[/dim] "
+                f"{article.title[:60]}"
+            )
 
             if i < len(articles) - 1:
                 time.sleep(CALL_INTERVAL)

@@ -178,6 +178,95 @@ def parse_json_response(raw: str) -> dict[str, Any]:
         msg = f"JSON 结果不是 dict: {type(result).__name__}"
         raise LLMResponseParseError(msg)
     except json.JSONDecodeError as exc:
+        # 尝试修复常见的 LLM JSON 截断问题
+        repaired = _try_repair_json(json_text, exc)
+        if repaired is not None:
+            logger.warning("JSON 修复成功，原错误: %s", exc)
+            return repaired
         raise LLMResponseParseError(
             f"JSON 解析失败: {exc}\n原始响应: {raw}"
         ) from exc
+
+
+def _try_repair_json(text: str, error: json.JSONDecodeError) -> dict[str, Any] | None:
+    """尝试修复 LLM 输出的常见 JSON 问题.
+
+    常见错误模式 (GLM-5 等 LLM):
+    - "summary_zh "value"        — 缺少 ": "  (冒号+引号)
+    - "summary_zh":unquoted      — 缺少值的开头引号
+    - "summary_zh": "truncated   — 值被截断
+    - 尾部不完整                   — 缺少闭合括号
+    """
+    # 已知的 JSON 字段名
+    known_keys = [
+        "title_zh", "category", "category_confidence",
+        "summary_zh", "relevance", "relevance_reason",
+        "tags", "entities",
+    ]
+
+    working = text
+
+    # 策略1: 对已知字段名，修复 "key "value" → "key": "value"
+    # 实际结构: "summary_zh "Anthropic..." 中:
+    #   "summary_zh " 是一个完整 JSON 字符串(key含尾部空格)
+    #   后面紧跟 "Anthropic" 是 value 的开头(但缺 : 和引号)
+    # 修复: 在 "key " 后、value 开始前 插入 ": "
+    for key in known_keys:
+        # 匹配 "key "X 或 "key "X (key闭合引号后紧跟非逗号非右括号非空白字符)
+        pattern = rf'"{re.escape(key)}\s*"([^,\]:\s])'
+        if re.search(pattern, working):
+            working = re.sub(
+                rf'("{re.escape(key)})\s*"([^,\]:\s])',
+                rf'\1": "\2',
+                working,
+            )
+
+    if working != text:
+        try:
+            result = json.loads(working)
+            if isinstance(result, dict):
+                return result
+        except json.JSONDecodeError:
+            pass
+
+    # 策略2: 对已知字段名，修复 "key": unquoted → "key": "unquoted"
+    for key in known_keys:
+        # 匹配 "key": 后紧跟非引号非数组字符，直到逗号或 }
+        closing = r'[,\}]'
+        pattern = rf'"{re.escape(key)}"\s*:\s*([^"\[\]{{,}}]+?)\s*({closing})'
+        if re.search(pattern, working):
+            working = re.sub(
+                rf'("{re.escape(key)}"\s*:\s*)([^"\[\]{{,}}]+?)\s*({closing})',
+                r'\1"\2"\3',
+                working,
+            )
+
+    try:
+        result = json.loads(working)
+        if isinstance(result, dict):
+            return result
+    except json.JSONDecodeError:
+        pass
+
+    # 策略3: 尾部截断修复 — 补上缺失的引号和括号
+    pos = error.pos if error.pos < len(text) else len(text)
+    truncated = text[:pos]
+
+    last_quote = truncated.rfind('"')
+    last_comma = truncated.rfind(',')
+    last_colon = truncated.rfind(':')
+    if last_quote > max(last_comma, last_colon):
+        truncated = truncated[:last_quote + 1]
+
+    open_braces = truncated.count('{') - truncated.count('}')
+    open_brackets = truncated.count('[') - truncated.count(']')
+    truncated += ']' * max(0, open_brackets) + '}' * max(0, open_braces)
+
+    try:
+        result = json.loads(truncated)
+        if isinstance(result, dict):
+            return result
+    except json.JSONDecodeError:
+        pass
+
+    return None
