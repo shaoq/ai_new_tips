@@ -17,6 +17,25 @@ logger = logging.getLogger(__name__)
 # 每个 RSS 源最大拉取条目数（防止首次全量拉取过多）
 MAX_ENTRIES_PER_FEED = 30
 
+# AI 关键词过滤正则（标题或摘要中需包含至少一个）
+import re
+_AI_KEYWORD_PATTERN = re.compile(
+    r"(?i)\b(?:AI|artificial.intelligence|LLM|GPT|Claude|Gemini|transformer|"
+    r"diffusion|deep.learning|machine.learning|neural|NLP|computer.vision|"
+    r"AGI|reinforcement.learning|fine.tun|prompt|inference|model|"
+    r"openai|deepmind|anthropic|huggingface|midjourney|stability|"
+    r"chatbot|copilot|agent|RAG|embedding|token|vision|reasoning)\b"
+)
+
+# 不需要过滤的源（内容本身就是 AI 专题）
+_UNFILTERED_SOURCES = {
+    "openai-blog", "deepmind", "huggingface", "hf_papers",
+    "reddit-machinelearning", "reddit-localllama", "reddit-chatgpt",
+    "reddit-claudeai", "reddit-anthropicai", "devto-claude",
+    "github-trending-python-daily", "github-trending-all-weekly",
+    "libhunt-python", "libhunt-selfhosted", "hellogithub",
+}
+
 # 默认 RSS 源列表
 DEFAULT_RSS_FEEDS: dict[str, str] = {
     # ── 原始源 ──
@@ -168,6 +187,12 @@ class RSSFetcher(BaseFetcher):
             if last_item_ts and published_at:
                 pub_aware = published_at.replace(tzinfo=timezone.utc) if published_at.tzinfo is None else published_at
                 if pub_aware <= last_item_ts:
+                    continue
+
+            # AI 关键词过滤（非专题源需匹配 AI 关键词）
+            if feed_name not in _UNFILTERED_SOURCES:
+                text = f"{title} {summary}"
+                if not _AI_KEYWORD_PATTERN.search(text):
                     continue
 
             items.append({

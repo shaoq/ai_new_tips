@@ -66,7 +66,7 @@ def process_callback(
             elif all_articles and force:
                 _process_all_force(processor, session)
             else:
-                _process_unprocessed(processor, session)
+                _process_unprocessed(processor, session, batch_limit)
         finally:
             pass
 
@@ -99,10 +99,10 @@ def _process_single(
 
 
 def _process_unprocessed(
-    processor: ArticleProcessor, session: "Session"
+    processor: ArticleProcessor, session: "Session", limit: int | None = None
 ) -> None:
     """处理未处理文章并输出统计."""
-    results = processor.process_unprocessed(session)
+    results = processor.process_unprocessed(session, limit=limit)
     _print_batch_summary(results, "增量处理")
 
 

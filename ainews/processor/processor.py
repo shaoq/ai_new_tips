@@ -108,6 +108,8 @@ class ArticleProcessor:
     def process_unprocessed(self, session: Session, limit: int | None = None) -> list[ProcessResult]:
         """处理所有 processed=False 的文章.
 
+        按 source 轮询取文章，确保每个源都能被处理到。
+
         Args:
             session: 数据库 session
             limit: 限制处理数量。None 使用默认上限 50，0 表示不限制
@@ -117,10 +119,7 @@ class ArticleProcessor:
         """
         batch_limit = DEFAULT_BATCH_LIMIT if limit is None else (limit if limit > 0 else None)
 
-        statement = select(Article).where(Article.processed == False)  # noqa: E712
-        if batch_limit is not None:
-            statement = statement.limit(batch_limit)
-        articles = session.exec(statement).all()
+        articles = self._fetch_round_robin(session, batch_limit)
 
         if not articles:
             logger.info("没有需要处理的文章")
@@ -250,6 +249,72 @@ class ArticleProcessor:
 
         self._log_summary(results, "title_zh 回填")
         return results
+
+    def _fetch_round_robin(
+        self, session: Session, limit: int | None
+    ) -> list[Article]:
+        """按 source 轮询取未处理文章，确保每个源都能被处理到.
+
+        Args:
+            session: 数据库 session
+            limit: 总处理上限
+
+        Returns:
+            文章列表，按 source 交替排列
+        """
+        from sqlmodel import func, col
+
+        # 查询每个 source 有多少未处理文章
+        counts_stmt = (
+            select(Article.source, func.count())
+            .where(Article.processed == False)  # noqa: E712
+            .group_by(Article.source)
+        )
+        source_counts = dict(session.exec(counts_stmt).all())
+
+        if not source_counts:
+            return []
+
+        # 按 source 均分配额
+        n_sources = len(source_counts)
+        per_source = (limit // n_sources + 1) if limit else None
+
+        articles: list[Article] = []
+        for source in source_counts:
+            stmt = (
+                select(Article)
+                .where(Article.processed == False)  # noqa: E712
+                .where(Article.source == source)
+                .order_by(col(Article.id).asc())
+            )
+            if per_source is not None:
+                stmt = stmt.limit(per_source)
+            articles.extend(session.exec(stmt).all())
+
+        # 交错排列：从每个 source 各取一篇，循环
+        from collections import defaultdict
+        by_source: dict[str, list[Article]] = defaultdict(list)
+        for a in articles:
+            by_source[a.source].append(a)
+
+        source_queues = list(by_source.values())
+        interleaved: list[Article] = []
+        idx = 0
+        while source_queues:
+            queue = source_queues[idx % len(source_queues)]
+            if queue:
+                interleaved.append(queue.pop(0))
+            if not queue:
+                source_queues.remove(queue)
+                if not source_queues:
+                    break
+                idx = idx % len(source_queues)
+                continue
+            idx += 1
+            if limit and len(interleaved) >= limit:
+                break
+
+        return interleaved
 
     def _apply_result(
         self, article: Article, parsed: dict[str, Any], session: Session
