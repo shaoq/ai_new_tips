@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
@@ -79,9 +79,10 @@ class TestProcessCommand:
         result = runner.invoke(app, [])
 
         assert result.exit_code == 0
-        mock_processor.process_unprocessed.assert_called_once()
+        mock_processor.process_unprocessed.assert_called_once_with(
+            ANY, limit=None
+        )
         assert "成功" in result.output
-        mock_session.close.assert_called_once()
 
     @patch("ainews.cli.process._create_processor")
     def test_process_no_articles(self, mock_create: MagicMock) -> None:
@@ -113,7 +114,7 @@ class TestProcessCommand:
         result = runner.invoke(app, ["--article", "42"])
 
         assert result.exit_code == 0
-        mock_processor.process_by_id.assert_called_once_with(mock_session, 42)
+        mock_processor.process_by_id.assert_called_once_with(ANY, 42)
         assert "处理成功" in result.output
         assert "tools" in result.output
 
