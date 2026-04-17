@@ -29,23 +29,24 @@ _SOURCE_TYPE_LABEL: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
-# source → domain (用于 Google Favicon API)
+# source → favicon URL（直接映射，避免依赖被墙的 Google Favicon API）
 # ---------------------------------------------------------------------------
 
-_SOURCE_DOMAIN_MAP: dict[str, str] = {
-    "hackernews": "news.ycombinator.com",
-    "reddit": "www.reddit.com",
-    "rss": "www.google.com",  # RSS 来源多样，用通用兜底
-    "chinese": "www.jiqizhixin.com",  # 中文源默认机器之心
-    "twitter": "x.com",
-    "arxiv": "arxiv.org",
-    "hf_papers": "huggingface.co",
-    "github": "github.com",
-    "github-releases": "github.com",
+_SOURCE_FAVICON_MAP: dict[str, str] = {
+    # 可达源 → 自身 favicon
+    "hackernews": "https://news.ycombinator.com/favicon.ico",
+    "arxiv": "https://arxiv.org/favicon.ico",
+    "hf_papers": "https://huggingface.co/favicon.ico",
+    "github": "https://github.com/favicon.ico",
+    "github-releases": "https://github.com/favicon.ico",
+    "rss": "https://venturebeat.com/favicon.ico",
+    "chinese": "https://www.jiqizhixin.com/favicon.ico",
+    # 被墙源 → flaticon CDN 图标
+    "reddit": "https://cdn-icons-png.flaticon.com/128/2111/2111620.png",
+    "twitter": "https://cdn-icons-png.flaticon.com/128/5968/5968819.png",
 }
 
-_FAVICON_TEMPLATE = "https://www.google.com/s2/favicons?domain={domain}&sz=64"
-_FALLBACK_DOMAIN = "www.google.com"
+_FALLBACK_FAVICON = "https://venturebeat.com/favicon.ico"
 
 
 def get_source_type(source: str) -> str:
@@ -79,7 +80,6 @@ def get_favicon_url(source: str) -> str:
         source: 数据源标识符
 
     Returns:
-        favicon 图片 URL (Google Favicon API)
+        favicon 图片 URL（国内可达）
     """
-    domain = _SOURCE_DOMAIN_MAP.get(source, _FALLBACK_DOMAIN)
-    return _FAVICON_TEMPLATE.format(domain=domain)
+    return _SOURCE_FAVICON_MAP.get(source, _FALLBACK_FAVICON)

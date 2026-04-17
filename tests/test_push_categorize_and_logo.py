@@ -66,7 +66,6 @@ class TestGetFaviconUrl:
     def test_known_source_returns_url(self) -> None:
         url = get_favicon_url("arxiv")
         assert "arxiv.org" in url
-        assert "google.com/s2/favicons" in url
 
     def test_github_returns_github_domain(self) -> None:
         url = get_favicon_url("github")
@@ -74,7 +73,13 @@ class TestGetFaviconUrl:
 
     def test_unknown_source_returns_fallback(self) -> None:
         url = get_favicon_url("nonexistent")
-        assert "google.com/s2/favicons" in url
+        assert "venturebeat.com" in url
+
+    def test_blocked_source_returns_accessible_icon(self) -> None:
+        url = get_favicon_url("reddit")
+        assert "flaticon.com" in url
+        url2 = get_favicon_url("twitter")
+        assert "flaticon.com" in url2
 
 
 # ---------------------------------------------------------------------------
